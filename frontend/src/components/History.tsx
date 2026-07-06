@@ -11,7 +11,7 @@ export function History({ history }: Props) {
   return (
     <section>
       <h3 className="font-display font-semibold text-cream/80 mb-3">
-        Últimas picaditas
+        Últimes picaetes
       </h3>
       <ul className="space-y-1.5">
         {history.map((h) => (

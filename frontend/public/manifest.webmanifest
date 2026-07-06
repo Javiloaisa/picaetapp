@@ -1,7 +1,7 @@
 {
-  "name": "La Picadita del Viernes",
-  "short_name": "Picadita",
-  "description": "A quién le toca comprar la picadita esta semana.",
+  "name": "La Picaeta del Divendres",
+  "short_name": "Picaeta",
+  "description": "A qui li toca portar la picaeta esta setmana.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

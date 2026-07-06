@@ -31,7 +31,7 @@ export function MembersManager({ members, meId, onChanged }: Props) {
   }
 
   async function remove(id: string, memberName: string) {
-    if (!confirm(`¿Quitar a ${memberName} del equipo?`)) return;
+    if (!confirm(`Vols llevar ${memberName} de l'equip?`)) return;
     setBusy(true);
     setError(null);
     try {
@@ -47,7 +47,7 @@ export function MembersManager({ members, meId, onChanged }: Props) {
   async function resetPin(id: string, memberName: string) {
     if (
       !confirm(
-        `¿Resetear el PIN de ${memberName}? Tendrá que crear uno nuevo al entrar.`
+        `Vols reiniciar el PIN de ${memberName}? Haurà de crear-ne un nou en entrar.`
       )
     )
       return;
@@ -65,13 +65,13 @@ export function MembersManager({ members, meId, onChanged }: Props) {
 
   return (
     <section>
-      <h3 className="font-display font-semibold text-cream/80 mb-3">El equipo</h3>
+      <h3 className="font-display font-semibold text-cream/80 mb-3">L'equip</h3>
 
       <form onSubmit={add} className="flex gap-2 mb-4">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Añadir a alguien…"
+          placeholder="Afegir algú…"
           maxLength={60}
           className="flex-1 rounded-2xl bg-white/[0.06] px-4 py-3 text-cream placeholder:text-cream/30 outline-none focus:ring-2 focus:ring-mustard/60"
         />
@@ -104,14 +104,14 @@ export function MembersManager({ members, meId, onChanged }: Props) {
                 disabled={busy}
                 className="tap text-cream/40 hover:text-mustard text-sm disabled:opacity-40"
               >
-                resetear PIN
+                reiniciar PIN
               </button>
               <button
                 onClick={() => remove(m.id, m.name)}
                 disabled={busy}
                 className="tap text-cream/40 hover:text-coral text-sm disabled:opacity-40"
               >
-                quitar
+                llevar
               </button>
             </div>
           </li>

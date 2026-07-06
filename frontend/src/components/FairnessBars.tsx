@@ -12,7 +12,7 @@ export function FairnessBars({ members, meId }: Props) {
   return (
     <section>
       <h3 className="font-display font-semibold text-cream/80 mb-3">
-        Reparto del año
+        Repartiment de l'any
       </h3>
       <div className="space-y-3">
         {members.map((m) => {
@@ -23,13 +23,18 @@ export function FairnessBars({ members, meId }: Props) {
               <div className="flex justify-between text-sm mb-1">
                 <span className={isMe ? "text-mustard font-semibold" : "text-cream/80"}>
                   {m.name}
-                  {isMe && <span className="text-xs ml-2 opacity-70">(tú)</span>}
+                  {isMe && <span className="text-xs ml-2 opacity-70">(tu)</span>}
+                  {m.on_vacation && (
+                    <span className="text-xs ml-2 text-cream/40">🏖️ de vacances</span>
+                  )}
                 </span>
                 <span className="text-cream/50 tabular-nums">{m.count}</span>
               </div>
               <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-mustard to-coral transition-[width] duration-500"
+                  className={`h-full rounded-full bg-gradient-to-r from-mustard to-coral transition-[width] duration-500 ${
+                    m.on_vacation ? "opacity-40" : ""
+                  }`}
                   style={{ width: `${Math.max(pct, m.count > 0 ? 8 : 0)}%` }}
                 />
               </div>

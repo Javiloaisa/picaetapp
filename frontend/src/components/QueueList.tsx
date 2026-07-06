@@ -7,14 +7,14 @@ interface Props {
 }
 
 export function QueueList({ queue, declined, meId }: Props) {
-  // El primero es el asignado (ya se muestra arriba): enseñamos del 2º en adelante.
+  // El primer és l'assignat (ja es mostra a dalt): ensenyem del 2n en avant.
   const rest = queue.slice(1);
   if (rest.length === 0) return null;
 
   return (
     <section>
       <h3 className="font-display font-semibold text-cream/80 mb-3">
-        Y luego van…
+        I després van…
       </h3>
       <ol className="space-y-2">
         {rest.map((m, i) => {
@@ -30,13 +30,13 @@ export function QueueList({ queue, declined, meId }: Props) {
               <span className="flex-1 text-cream">
                 {m.name}
                 {m.id === meId && (
-                  <span className="text-mustard text-xs ml-2">(tú)</span>
+                  <span className="text-mustard text-xs ml-2">(tu)</span>
                 )}
               </span>
               {hasDeclined ? (
-                <span className="text-xs text-coral/80">esta semana no</span>
+                <span className="text-xs text-coral/80">esta setmana no</span>
               ) : (
-                <span className="text-xs text-cream/40">{m.count} este año</span>
+                <span className="text-xs text-cream/40">{m.count} enguany</span>
               )}
             </li>
           );

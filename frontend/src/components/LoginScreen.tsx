@@ -32,10 +32,10 @@ export function LoginScreen({ onAuthed }: Props) {
     <div className="min-h-dvh flex flex-col justify-center px-6 py-10 max-w-md mx-auto">
       <div className="text-5xl mb-3">🫒</div>
       <h1 className="font-display text-3xl font-bold text-cream leading-tight">
-        La Picadita del Viernes
+        La Picaeta del Divendres
       </h1>
       <p className="text-cream/60 mt-2 mb-8">
-        ¿Quién eres? Elige tu nombre y entra con tu PIN.
+        Qui eres? Tria el teu nom i entra amb el teu PIN.
       </p>
 
       {error && (
@@ -45,13 +45,13 @@ export function LoginScreen({ onAuthed }: Props) {
       )}
 
       {members === null && !error && (
-        <p className="text-cream/40">Cargando la peña…</p>
+        <p className="text-cream/40">Carregant la colla…</p>
       )}
 
       {members && members.length === 0 && (
         <p className="text-cream/60">
-          Todavía no hay nadie en el equipo. Hay que sembrar el roster en la base
-          de datos (ver README). 🌱
+          Encara no hi ha ningú en l'equip. Cal sembrar la llista a la base de
+          dades (mira el README). 🌱
         </p>
       )}
 
@@ -68,7 +68,7 @@ export function LoginScreen({ onAuthed }: Props) {
             <span>{m.name}</span>
             {!m.has_pin && (
               <span className="text-xs font-body font-medium bg-navy-900/15 rounded-full px-2 py-0.5">
-                nuevo
+                nou
               </span>
             )}
           </button>
@@ -87,7 +87,7 @@ function PinStep({
   onBack: () => void;
   onAuthed: () => void;
 }) {
-  const isNew = !member.has_pin; // cuenta sin reclamar: crea PIN
+  const isNew = !member.has_pin; // compte sense reclamar: crea PIN
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -98,11 +98,11 @@ function PinStep({
     setError(null);
 
     if (!/^\d{4,6}$/.test(pin)) {
-      setError("El PIN deben ser entre 4 y 6 dígitos.");
+      setError("El PIN ha de tindre entre 4 i 6 xifres.");
       return;
     }
     if (isNew && pin !== confirm) {
-      setError("Los dos PIN no coinciden.");
+      setError("Els dos PIN no coincidixen.");
       return;
     }
 
@@ -123,7 +123,7 @@ function PinStep({
         onClick={onBack}
         className="tap text-cream/60 hover:text-cream text-sm mb-8 self-start"
       >
-        ← No soy {member.name}
+        ← No soc {member.name}
       </button>
 
       <h1 className="font-display text-2xl font-bold text-cream">
@@ -131,8 +131,8 @@ function PinStep({
       </h1>
       <p className="text-cream/60 mt-2 mb-8">
         {isNew
-          ? "Es tu primera vez: crea un PIN de 4-6 dígitos para tu cuenta."
-          : "Introduce tu PIN para entrar."}
+          ? "És la teua primera vegada: crea un PIN de 4-6 xifres per al teu compte."
+          : "Introduïx el teu PIN per a entrar."}
       </p>
 
       {error && (
@@ -159,7 +159,7 @@ function PinStep({
             }
             inputMode="numeric"
             autoComplete="off"
-            placeholder="Repite el PIN"
+            placeholder="Repetix el PIN"
             className="text-center tracking-[0.5em] font-display text-2xl rounded-2xl bg-white/[0.06] px-4 py-4 text-cream placeholder:text-cream/30 placeholder:tracking-normal outline-none focus:ring-2 focus:ring-mustard/60"
           />
         )}
@@ -168,14 +168,14 @@ function PinStep({
           disabled={busy}
           className="tap font-display text-lg font-bold text-navy-900 bg-mustard hover:bg-mustard-soft disabled:opacity-50 rounded-2xl px-5 py-4"
         >
-          {busy ? "…" : isNew ? "Crear PIN y entrar" : "Entrar"}
+          {busy ? "…" : isNew ? "Crear PIN i entrar" : "Entrar"}
         </button>
       </form>
 
       {!isNew && (
         <p className="text-cream/30 text-xs text-center mt-6">
-          ¿Olvidaste el PIN? Pídele a cualquiera del equipo que te lo resetee
-          desde ⚙️.
+          Has oblidat el PIN? Demana a qualsevol de l'equip que te'l reinicie des
+          de ⚙️.
         </p>
       )}
     </div>

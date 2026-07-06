@@ -47,6 +47,7 @@ def compute_standings(members: list[dict[str, Any]],
             "count": completed_count.get(mid, 0),
             "last_turn": last_completed.get(mid),
             "created_at": m["created_at"],
+            "on_vacation": bool(m.get("on_vacation", False)),
         })
     return standings
 

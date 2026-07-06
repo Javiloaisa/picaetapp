@@ -1,26 +1,23 @@
-"""API de la Picadita del Viernes — FastAPI.
+"""API de la Picaeta del Divendres — FastAPI.
 
-En Hetzner corre como proceso permanente (uvicorn) detrás de un reverse proxy.
-Las rutas llevan el prefijo `/api` para que coincidan con lo que el proxy
-reenvía y con el proxy de Vite en desarrollo.
+En Hetzner corre como proceso permanente (uvicorn) detrás del reverse proxy
+compartido (Caddy). Las rutas llevan el prefijo `/api`.
 """
 
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 import auth
+import push
 from db import get_conn
 from logic import compute_standings, order_queue, pick_assigned
 
-app = FastAPI(title="Picadita del Viernes")
+app = FastAPI(title="Picaeta del Divendres")
 
-# El frontend se sirve del mismo origen (proxy en dev, mismo dominio en prod),
-# así que las cookies viajan sin líos de CORS. Dejamos CORS restringido a same
-# origin: no hace falta abrir a otros dominios.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[],
@@ -51,6 +48,18 @@ class TargetIn(BaseModel):
     member_id: str
 
 
+class VacationIn(BaseModel):
+    on: bool
+
+
+class SubscribeIn(BaseModel):
+    subscription: dict[str, Any]
+
+
+class UnsubscribeIn(BaseModel):
+    endpoint: str
+
+
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
@@ -59,10 +68,10 @@ def _iso(d: Optional[date]) -> Optional[str]:
 
 
 def _load_state(conn):
-    """Recalcula el asignado, lo persiste en current_state y devuelve el estado."""
+    """Recalcula el asignado (excluyendo vacaciones), lo cachea y devuelve todo."""
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT id, name, active, created_at FROM members "
+            "SELECT id, name, active, created_at, on_vacation FROM members "
             "WHERE active = true ORDER BY created_at"
         )
         members = cur.fetchall()
@@ -84,8 +93,10 @@ def _load_state(conn):
         declined = [str(x) for x in (state_row["declined_this_round"] or [])]
 
         standings = compute_standings(members, completed)
-        assigned_id, declined = pick_assigned(standings, declined)
-        queue = order_queue(standings, declined)
+        # Quien esté de vacaciones no entra en el reparto (ni asignado ni cola).
+        assignable = [s for s in standings if not s["on_vacation"]]
+        assigned_id, declined = pick_assigned(assignable, declined)
+        queue = order_queue(assignable, declined)
 
         cur.execute(
             "UPDATE current_state SET assigned_member_id = %s, "
@@ -110,6 +121,7 @@ def _load_state(conn):
             "name": e["name"],
             "count": e["count"],
             "last_turn": _iso(e["last_turn"]),
+            "on_vacation": e["on_vacation"],
         }
 
     return {
@@ -140,13 +152,15 @@ def whoami(request: Request):
         return {"member": None}
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT id, name FROM members WHERE id = %s AND active = true",
+            "SELECT id, name, on_vacation FROM members "
+            "WHERE id = %s AND active = true",
             (mid,),
         )
         m = cur.fetchone()
     if not m:
         return {"member": None}
-    return {"member": {"id": str(m["id"]), "name": m["name"]}}
+    return {"member": {"id": str(m["id"]), "name": m["name"],
+                       "on_vacation": m["on_vacation"]}}
 
 
 @app.post("/api/auth/set-pin")
@@ -154,7 +168,7 @@ def set_pin(body: SetPinIn, response: Response):
     """Reclama una cuenta poniéndole PIN por primera vez."""
     pin = body.pin.strip()
     if not auth.valid_pin_format(pin):
-        raise HTTPException(400, "El PIN deben ser entre 4 y 6 dígitos.")
+        raise HTTPException(400, "El PIN ha de tindre entre 4 i 6 xifres.")
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT id, pin_hash, active FROM members WHERE id = %s",
@@ -162,9 +176,9 @@ def set_pin(body: SetPinIn, response: Response):
         )
         m = cur.fetchone()
         if not m or not m["active"]:
-            raise HTTPException(404, "Ese usuario no existe.")
+            raise HTTPException(404, "Eixe usuari no existix.")
         if m["pin_hash"] is not None:
-            raise HTTPException(409, "Este usuario ya tiene PIN. Entra con él.")
+            raise HTTPException(409, "Este usuari ja té PIN. Entra amb ell.")
         cur.execute(
             "UPDATE members SET pin_hash = %s, failed_attempts = 0, "
             "locked_until = NULL WHERE id = %s",
@@ -186,11 +200,11 @@ def login(body: LoginIn, response: Response):
         )
         m = cur.fetchone()
         if not m or not m["active"]:
-            raise HTTPException(404, "Ese usuario no existe.")
+            raise HTTPException(404, "Eixe usuari no existix.")
         if m["pin_hash"] is None:
-            raise HTTPException(409, "Este usuario aún no tiene PIN. Créalo.")
+            raise HTTPException(409, "Este usuari encara no té PIN. Crea'l.")
         if m["locked_until"] and m["locked_until"] > now:
-            raise HTTPException(429, "Demasiados intentos. Prueba en unos minutos.")
+            raise HTTPException(429, "Massa intents. Prova d'ací a uns minuts.")
 
         ok = auth.verify_pin(m["pin_hash"], pin)
         if ok:
@@ -211,9 +225,8 @@ def login(body: LoginIn, response: Response):
                 "WHERE id = %s",
                 (0 if locked else attempts, locked, m["id"]),
             )
-    # Fuera del `with` para que el contador de fallos SÍ se guarde antes de fallar.
     if not ok:
-        raise HTTPException(401, "PIN incorrecto.")
+        raise HTTPException(401, "PIN incorrecte.")
     auth.issue_cookie(response, body.member_id)
     return {"id": str(body.member_id)}
 
@@ -226,10 +239,7 @@ def logout(response: Response):
 
 @app.post("/api/auth/reset-pin")
 def reset_pin(body: TargetIn, _actor: str = Depends(auth.require_login)):
-    """Borra el PIN de alguien (para que vuelva a reclamarlo si lo olvidó).
-
-    Accesible para cualquier miembro logueado: es un equipo pequeño y de confianza.
-    """
+    """Borra el PIN de alguien (para que vuelva a reclamarlo si lo olvidó)."""
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             "UPDATE members SET pin_hash = NULL, failed_attempts = 0, "
@@ -237,7 +247,7 @@ def reset_pin(body: TargetIn, _actor: str = Depends(auth.require_login)):
             (body.member_id,),
         )
         if cur.fetchone() is None:
-            raise HTTPException(404, "Ese usuario no existe.")
+            raise HTTPException(404, "Eixe usuari no existix.")
     return {"ok": True}
 
 
@@ -268,7 +278,7 @@ def list_members():
 def create_member(body: MemberIn, _actor: str = Depends(auth.require_login)):
     name = body.name.strip()
     if not name:
-        raise HTTPException(400, "El nombre no puede estar vacío.")
+        raise HTTPException(400, "El nom no pot estar buit.")
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             "INSERT INTO members (name) VALUES (%s) RETURNING id, name",
@@ -287,12 +297,24 @@ def deactivate_member(member_id: str, _actor: str = Depends(auth.require_login))
                 (member_id,),
             )
             if cur.fetchone() is None:
-                raise HTTPException(404, "Ese miembro no existe.")
+                raise HTTPException(404, "Eixe membre no existix.")
             cur.execute(
                 "UPDATE current_state "
                 "SET declined_this_round = array_remove(declined_this_round, %s) "
                 "WHERE id = 1",
                 (member_id,),
+            )
+        return _load_state(conn)
+
+
+@app.post("/api/members/vacation")
+def set_vacation(body: VacationIn, actor: str = Depends(auth.require_login)):
+    """El usuario activa/desactiva su propio modo vacaciones."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE members SET on_vacation = %s WHERE id = %s",
+                (body.on, actor),
             )
         return _load_state(conn)
 
@@ -308,7 +330,7 @@ def complete_turn(actor: str = Depends(auth.require_login)):
         if not assigned or assigned["id"] != actor:
             raise HTTPException(
                 409,
-                "Ese turno ya no es tuyo. Refresca para ver a quién le toca.",
+                "Eixe torn ja no és teu. Refresca per a vore a qui li toca.",
             )
         with conn.cursor() as cur:
             cur.execute(
@@ -330,7 +352,7 @@ def decline_turn(actor: str = Depends(auth.require_login)):
         if not assigned or assigned["id"] != actor:
             raise HTTPException(
                 409,
-                "Ese turno ya no es tuyo. Refresca para ver a quién le toca.",
+                "Eixe torn ja no és teu. Refresca per a vore a qui li toca.",
             )
         with conn.cursor() as cur:
             cur.execute(
@@ -341,3 +363,92 @@ def decline_turn(actor: str = Depends(auth.require_login)):
                 (actor, actor),
             )
         return _load_state(conn)
+
+
+# --------------------------------------------------------------------------- #
+# Notificaciones push (Web Push)
+# --------------------------------------------------------------------------- #
+@app.get("/api/push/public-key")
+def push_public_key():
+    return {"key": push.public_key()}
+
+
+@app.post("/api/push/subscribe")
+def push_subscribe(body: SubscribeIn, actor: str = Depends(auth.require_login)):
+    sub = body.subscription
+    endpoint = sub.get("endpoint")
+    keys = sub.get("keys") or {}
+    p256dh = keys.get("p256dh")
+    authk = keys.get("auth")
+    if not (endpoint and p256dh and authk):
+        raise HTTPException(400, "Subscripció de push no vàlida.")
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO push_subscriptions (member_id, endpoint, p256dh, auth) "
+            "VALUES (%s, %s, %s, %s) "
+            "ON CONFLICT (endpoint) DO UPDATE SET "
+            "  member_id = EXCLUDED.member_id, p256dh = EXCLUDED.p256dh, "
+            "  auth = EXCLUDED.auth",
+            (actor, endpoint, p256dh, authk),
+        )
+    return {"ok": True}
+
+
+@app.post("/api/push/unsubscribe")
+def push_unsubscribe(body: UnsubscribeIn, actor: str = Depends(auth.require_login)):
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "DELETE FROM push_subscriptions WHERE endpoint = %s AND member_id = %s",
+            (body.endpoint, actor),
+        )
+    return {"ok": True}
+
+
+@app.post("/api/push/remind")
+def push_remind(body: TargetIn, actor: str = Depends(auth.require_login)):
+    """Envía una notificación push a la persona a la que le toca."""
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("SELECT name FROM members WHERE id = %s", (actor,))
+        me = cur.fetchone()
+        cur.execute(
+            "SELECT name FROM members WHERE id = %s AND active = true",
+            (body.member_id,),
+        )
+        target = cur.fetchone()
+        if not target:
+            raise HTTPException(404, "Eixe membre no existix.")
+        cur.execute(
+            "SELECT endpoint, p256dh, auth FROM push_subscriptions "
+            "WHERE member_id = %s",
+            (body.member_id,),
+        )
+        subs = cur.fetchall()
+
+    who = me["name"] if me else "algú"
+    sent = 0
+    dead: list[str] = []
+    for s in subs:
+        sub_info = {
+            "endpoint": s["endpoint"],
+            "keys": {"p256dh": s["p256dh"], "auth": s["auth"]},
+        }
+        ok, code = push.send(
+            sub_info,
+            "Et toca la picaeta! 🫒",
+            f"{who} et recorda que este divendres la portes tu.",
+            "/",
+        )
+        if ok:
+            sent += 1
+        elif code in (404, 410):
+            dead.append(s["endpoint"])
+
+    if dead:
+        with get_conn() as conn, conn.cursor() as cur:
+            for endpoint in dead:
+                cur.execute(
+                    "DELETE FROM push_subscriptions WHERE endpoint = %s",
+                    (endpoint,),
+                )
+
+    return {"sent": sent, "has_subscription": len(subs) > 0}

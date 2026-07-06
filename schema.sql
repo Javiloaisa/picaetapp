@@ -7,12 +7,26 @@ create table if not exists members (
   id              uuid primary key default gen_random_uuid(),
   name            text not null,
   active          boolean default true,
+  -- De vacaciones: sigue en el equipo pero no se le asignan turnos.
+  on_vacation     boolean not null default false,
   -- Autenticación por PIN. pin_hash NULL = cuenta sin reclamar (aún sin PIN).
   pin_hash        text,
   failed_attempts int not null default 0,      -- intentos de PIN fallidos seguidos
   locked_until    timestamptz,                 -- bloqueo temporal tras varios fallos
   created_at      timestamptz default now()
 );
+
+-- Suscripciones de notificaciones push (Web Push) por dispositivo/navegador.
+create table if not exists push_subscriptions (
+  id         uuid primary key default gen_random_uuid(),
+  member_id  uuid references members(id) on delete cascade,
+  endpoint   text not null unique,
+  p256dh     text not null,
+  auth       text not null,
+  created_at timestamptz default now()
+);
+
+create index if not exists push_subs_member_idx on push_subscriptions (member_id);
 
 create table if not exists turns (
   id         uuid primary key default gen_random_uuid(),
@@ -46,8 +60,9 @@ insert into current_state (id) values (1)
 --   ('Pablo'), ('Sara'), ('Nico');
 
 -- ------------------------------------------------------------------ --
--- Migración si ya habías creado la tabla members sin las columnas de PIN:
+-- Migración si ya habías creado la tabla members sin las columnas nuevas:
 -- ------------------------------------------------------------------ --
 -- alter table members add column if not exists pin_hash text;
 -- alter table members add column if not exists failed_attempts int not null default 0;
 -- alter table members add column if not exists locked_until timestamptz;
+-- alter table members add column if not exists on_vacation boolean not null default false;
