@@ -1,29 +1,5 @@
-// Utilidades pequeñas: identidad local y formato de fechas.
-
-const MEMBER_KEY = "picadita_member_id";
-const DEVICE_KEY = "picadita_device_id";
-
-export function getStoredMemberId(): string | null {
-  return localStorage.getItem(MEMBER_KEY);
-}
-
-export function setStoredMemberId(id: string): void {
-  localStorage.setItem(MEMBER_KEY, id);
-}
-
-export function clearStoredMemberId(): void {
-  localStorage.removeItem(MEMBER_KEY);
-}
-
-// device_id persistente por dispositivo (por si en el futuro sirve para algo).
-export function getDeviceId(): string {
-  let id = localStorage.getItem(DEVICE_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(DEVICE_KEY, id);
-  }
-  return id;
-}
+// Utilidades pequeñas de formato de fechas. La identidad ya no vive aquí:
+// la sesión la lleva la cookie HttpOnly (ver api.ts / auth.py).
 
 const MONTHS = [
   "ene", "feb", "mar", "abr", "may", "jun",

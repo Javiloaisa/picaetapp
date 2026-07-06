@@ -1,8 +1,9 @@
-import type { AppState, Member } from "./types";
+import type { AppState, Me, Member } from "./types";
 
 async function req<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     headers: { "Content-Type": "application/json" },
+    credentials: "same-origin", // envía/recibe la cookie de sesión
     ...options,
   });
   if (!res.ok) {
@@ -13,18 +14,44 @@ async function req<T>(url: string, options?: RequestInit): Promise<T> {
     } catch {
       /* respuesta sin JSON */
     }
-    throw new Error(detail);
+    const err = new Error(detail) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
   return res.json() as Promise<T>;
 }
 
 export const api = {
+  // --- sesión ---
+  me: () => req<Me>("/api/auth/me"),
+
+  setPin: (member_id: string, pin: string) =>
+    req<{ id: string }>("/api/auth/set-pin", {
+      method: "POST",
+      body: JSON.stringify({ member_id, pin }),
+    }),
+
+  login: (member_id: string, pin: string) =>
+    req<{ id: string }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ member_id, pin }),
+    }),
+
+  logout: () => req<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
+
+  resetPin: (member_id: string) =>
+    req<{ ok: boolean }>("/api/auth/reset-pin", {
+      method: "POST",
+      body: JSON.stringify({ member_id }),
+    }),
+
+  // --- estado ---
   getState: () => req<AppState>("/api/state"),
 
   listMembers: () => req<Member[]>("/api/members"),
 
   addMember: (name: string) =>
-    req<Member>("/api/members", {
+    req<{ id: string; name: string }>("/api/members", {
       method: "POST",
       body: JSON.stringify({ name }),
     }),
@@ -32,15 +59,8 @@ export const api = {
   removeMember: (id: string) =>
     req<AppState>(`/api/members/${id}`, { method: "DELETE" }),
 
-  complete: (member_id: string) =>
-    req<AppState>("/api/turns/complete", {
-      method: "POST",
-      body: JSON.stringify({ member_id }),
-    }),
+  // --- acciones sobre el turno (el actor lo pone el servidor por la sesión) ---
+  complete: () => req<AppState>("/api/turns/complete", { method: "POST" }),
 
-  decline: (member_id: string) =>
-    req<AppState>("/api/turns/decline", {
-      method: "POST",
-      body: JSON.stringify({ member_id }),
-    }),
+  decline: () => req<AppState>("/api/turns/decline", { method: "POST" }),
 };

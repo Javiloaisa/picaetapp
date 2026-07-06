@@ -1,27 +1,30 @@
-"""API de la Picadita del Viernes — FastAPI sobre funciones serverless de Vercel.
+"""API de la Picadita del Viernes — FastAPI.
 
-Vercel detecta la variable `app` (ASGI) y la sirve. El `vercel.json` redirige
-todas las rutas `/api/*` a este único fichero, así que definimos las rutas con
-el prefijo `/api` para que funcionen igual en local y en producción.
+En Hetzner corre como proceso permanente (uvicorn) detrás de un reverse proxy.
+Las rutas llevan el prefijo `/api` para que coincidan con lo que el proxy
+reenvía y con el proxy de Vite en desarrollo.
 """
 
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+import auth
 from db import get_conn
 from logic import compute_standings, order_queue, pick_assigned
 
 app = FastAPI(title="Picadita del Viernes")
 
-# En Vercel el frontend se sirve del mismo dominio, pero permitimos CORS abierto
-# para poder desarrollar el frontend en localhost:5173 contra la API desplegada.
+# El frontend se sirve del mismo origen (proxy en dev, mismo dominio en prod),
+# así que las cookies viajan sin líos de CORS. Dejamos CORS restringido a same
+# origin: no hace falta abrir a otros dominios.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -34,7 +37,17 @@ class MemberIn(BaseModel):
     name: str = Field(min_length=1, max_length=60)
 
 
-class TurnAction(BaseModel):
+class SetPinIn(BaseModel):
+    member_id: str
+    pin: str
+
+
+class LoginIn(BaseModel):
+    member_id: str
+    pin: str
+
+
+class TargetIn(BaseModel):
     member_id: str
 
 
@@ -46,10 +59,7 @@ def _iso(d: Optional[date]) -> Optional[str]:
 
 
 def _load_state(conn):
-    """Recalcula el asignado, lo persiste en current_state y devuelve el estado.
-
-    Devuelve un dict listo para serializar por GET /api/state.
-    """
+    """Recalcula el asignado, lo persiste en current_state y devuelve el estado."""
     with conn.cursor() as cur:
         cur.execute(
             "SELECT id, name, active, created_at FROM members "
@@ -77,14 +87,12 @@ def _load_state(conn):
         assigned_id, declined = pick_assigned(standings, declined)
         queue = order_queue(standings, declined)
 
-        # Persistimos la caché de asignación.
         cur.execute(
             "UPDATE current_state SET assigned_member_id = %s, "
             "declined_this_round = %s WHERE id = 1",
             (assigned_id, declined),
         )
 
-        # Historial reciente (últimos 15 completados con nombre).
         cur.execute(
             "SELECT t.id, t.date, m.id AS member_id, m.name "
             "FROM turns t JOIN members m ON m.id = t.member_id "
@@ -123,7 +131,118 @@ def _load_state(conn):
 
 
 # --------------------------------------------------------------------------- #
-# Rutas
+# Autenticación
+# --------------------------------------------------------------------------- #
+@app.get("/api/auth/me")
+def whoami(request: Request):
+    mid = auth.read_member_id(request)
+    if not mid:
+        return {"member": None}
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, name FROM members WHERE id = %s AND active = true",
+            (mid,),
+        )
+        m = cur.fetchone()
+    if not m:
+        return {"member": None}
+    return {"member": {"id": str(m["id"]), "name": m["name"]}}
+
+
+@app.post("/api/auth/set-pin")
+def set_pin(body: SetPinIn, response: Response):
+    """Reclama una cuenta poniéndole PIN por primera vez."""
+    pin = body.pin.strip()
+    if not auth.valid_pin_format(pin):
+        raise HTTPException(400, "El PIN deben ser entre 4 y 6 dígitos.")
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, pin_hash, active FROM members WHERE id = %s",
+            (body.member_id,),
+        )
+        m = cur.fetchone()
+        if not m or not m["active"]:
+            raise HTTPException(404, "Ese usuario no existe.")
+        if m["pin_hash"] is not None:
+            raise HTTPException(409, "Este usuario ya tiene PIN. Entra con él.")
+        cur.execute(
+            "UPDATE members SET pin_hash = %s, failed_attempts = 0, "
+            "locked_until = NULL WHERE id = %s",
+            (auth.hash_pin(pin), body.member_id),
+        )
+    auth.issue_cookie(response, body.member_id)
+    return {"id": str(body.member_id)}
+
+
+@app.post("/api/auth/login")
+def login(body: LoginIn, response: Response):
+    pin = body.pin.strip()
+    now = datetime.now(timezone.utc)
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, pin_hash, active, failed_attempts, locked_until "
+            "FROM members WHERE id = %s",
+            (body.member_id,),
+        )
+        m = cur.fetchone()
+        if not m or not m["active"]:
+            raise HTTPException(404, "Ese usuario no existe.")
+        if m["pin_hash"] is None:
+            raise HTTPException(409, "Este usuario aún no tiene PIN. Créalo.")
+        if m["locked_until"] and m["locked_until"] > now:
+            raise HTTPException(429, "Demasiados intentos. Prueba en unos minutos.")
+
+        ok = auth.verify_pin(m["pin_hash"], pin)
+        if ok:
+            cur.execute(
+                "UPDATE members SET failed_attempts = 0, locked_until = NULL "
+                "WHERE id = %s",
+                (m["id"],),
+            )
+        else:
+            attempts = m["failed_attempts"] + 1
+            locked = (
+                now + timedelta(minutes=auth.LOCK_MINUTES)
+                if attempts >= auth.MAX_FAILED_ATTEMPTS
+                else None
+            )
+            cur.execute(
+                "UPDATE members SET failed_attempts = %s, locked_until = %s "
+                "WHERE id = %s",
+                (0 if locked else attempts, locked, m["id"]),
+            )
+    # Fuera del `with` para que el contador de fallos SÍ se guarde antes de fallar.
+    if not ok:
+        raise HTTPException(401, "PIN incorrecto.")
+    auth.issue_cookie(response, body.member_id)
+    return {"id": str(body.member_id)}
+
+
+@app.post("/api/auth/logout")
+def logout(response: Response):
+    auth.clear_cookie(response)
+    return {"ok": True}
+
+
+@app.post("/api/auth/reset-pin")
+def reset_pin(body: TargetIn, _actor: str = Depends(auth.require_login)):
+    """Borra el PIN de alguien (para que vuelva a reclamarlo si lo olvidó).
+
+    Accesible para cualquier miembro logueado: es un equipo pequeño y de confianza.
+    """
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE members SET pin_hash = NULL, failed_attempts = 0, "
+            "locked_until = NULL WHERE id = %s AND active = true RETURNING id",
+            (body.member_id,),
+        )
+        if cur.fetchone() is None:
+            raise HTTPException(404, "Ese usuario no existe.")
+    return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# Estado y miembros
 # --------------------------------------------------------------------------- #
 @app.get("/api/state")
 def get_state():
@@ -133,16 +252,20 @@ def get_state():
 
 @app.get("/api/members")
 def list_members():
+    """Lista pública para la pantalla de login (incluye si ya tienen PIN)."""
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT id, name FROM members WHERE active = true "
-            "ORDER BY name"
+            "SELECT id, name, pin_hash IS NOT NULL AS has_pin FROM members "
+            "WHERE active = true ORDER BY name"
         )
-        return [{"id": str(m["id"]), "name": m["name"]} for m in cur.fetchall()]
+        return [
+            {"id": str(m["id"]), "name": m["name"], "has_pin": m["has_pin"]}
+            for m in cur.fetchall()
+        ]
 
 
 @app.post("/api/members", status_code=201)
-def create_member(body: MemberIn):
+def create_member(body: MemberIn, _actor: str = Depends(auth.require_login)):
     name = body.name.strip()
     if not name:
         raise HTTPException(400, "El nombre no puede estar vacío.")
@@ -156,68 +279,65 @@ def create_member(body: MemberIn):
 
 
 @app.delete("/api/members/{member_id}")
-def deactivate_member(member_id: str):
+def deactivate_member(member_id: str, _actor: str = Depends(auth.require_login)):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE members SET active = false WHERE id = %s "
-                "RETURNING id",
+                "UPDATE members SET active = false WHERE id = %s RETURNING id",
                 (member_id,),
             )
             if cur.fetchone() is None:
                 raise HTTPException(404, "Ese miembro no existe.")
-            # Lo quitamos también de la ronda de declinados si estuviera.
             cur.execute(
                 "UPDATE current_state "
                 "SET declined_this_round = array_remove(declined_this_round, %s) "
                 "WHERE id = 1",
                 (member_id,),
             )
-        # Recalcula la asignación (por si era el asignado).
         return _load_state(conn)
 
 
+# --------------------------------------------------------------------------- #
+# Acciones sobre el turno (el actor sale de la sesión, no del cliente)
+# --------------------------------------------------------------------------- #
 @app.post("/api/turns/complete")
-def complete_turn(body: TurnAction):
+def complete_turn(actor: str = Depends(auth.require_login)):
     with get_conn() as conn:
+        state = _load_state(conn)
+        assigned = state["assigned"]
+        if not assigned or assigned["id"] != actor:
+            raise HTTPException(
+                409,
+                "Ese turno ya no es tuyo. Refresca para ver a quién le toca.",
+            )
         with conn.cursor() as cur:
-            # Verificamos que quien marca es realmente el asignado actual.
-            state = _load_state(conn)
-            assigned = state["assigned"]
-            if not assigned or assigned["id"] != str(body.member_id):
-                raise HTTPException(
-                    409,
-                    "Ese turno ya no es tuyo. Refresca para ver a quién le toca.",
-                )
             cur.execute(
                 "INSERT INTO turns (member_id, date, status) "
                 "VALUES (%s, %s, 'completado')",
-                (body.member_id, date.today()),
+                (actor, date.today()),
             )
-            # Comprar limpia la ronda de declinados.
             cur.execute(
-                "UPDATE current_state SET declined_this_round = '{}' "
-                "WHERE id = 1"
+                "UPDATE current_state SET declined_this_round = '{}' WHERE id = 1"
             )
         return _load_state(conn)
 
 
 @app.post("/api/turns/decline")
-def decline_turn(body: TurnAction):
+def decline_turn(actor: str = Depends(auth.require_login)):
     with get_conn() as conn:
+        state = _load_state(conn)
+        assigned = state["assigned"]
+        if not assigned or assigned["id"] != actor:
+            raise HTTPException(
+                409,
+                "Ese turno ya no es tuyo. Refresca para ver a quién le toca.",
+            )
         with conn.cursor() as cur:
-            state = _load_state(conn)
-            assigned = state["assigned"]
-            if not assigned or assigned["id"] != str(body.member_id):
-                raise HTTPException(
-                    409,
-                    "Ese turno ya no es tuyo. Refresca para ver a quién le toca.",
-                )
             cur.execute(
                 "UPDATE current_state "
                 "SET declined_this_round = "
                 "  array_append(declined_this_round, %s::uuid) "
                 "WHERE id = 1 AND NOT (%s::uuid = ANY(declined_this_round))",
-                (body.member_id, body.member_id),
+                (actor, actor),
             )
         return _load_state(conn)

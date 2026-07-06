@@ -23,4 +23,9 @@ export interface AppState {
 export interface Member {
   id: string;
   name: string;
+  has_pin: boolean;
+}
+
+export interface Me {
+  member: { id: string; name: string } | null;
 }

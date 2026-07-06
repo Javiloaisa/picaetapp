@@ -44,6 +44,25 @@ export function MembersManager({ members, meId, onChanged }: Props) {
     }
   }
 
+  async function resetPin(id: string, memberName: string) {
+    if (
+      !confirm(
+        `¿Resetear el PIN de ${memberName}? Tendrá que crear uno nuevo al entrar.`
+      )
+    )
+      return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.resetPin(id);
+      onChanged();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section>
       <h3 className="font-display font-semibold text-cream/80 mb-3">El equipo</h3>
@@ -79,13 +98,22 @@ export function MembersManager({ members, meId, onChanged }: Props) {
                 <span className="text-mustard text-xs ml-2">(tú)</span>
               )}
             </span>
-            <button
-              onClick={() => remove(m.id, m.name)}
-              disabled={busy}
-              className="tap text-cream/40 hover:text-coral text-sm disabled:opacity-40"
-            >
-              quitar
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => resetPin(m.id, m.name)}
+                disabled={busy}
+                className="tap text-cream/40 hover:text-mustard text-sm disabled:opacity-40"
+              >
+                resetear PIN
+              </button>
+              <button
+                onClick={() => remove(m.id, m.name)}
+                disabled={busy}
+                className="tap text-cream/40 hover:text-coral text-sm disabled:opacity-40"
+              >
+                quitar
+              </button>
+            </div>
           </li>
         ))}
       </ul>

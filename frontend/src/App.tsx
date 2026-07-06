@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import type { AppState } from "./types";
-import {
-  clearStoredMemberId,
-  getStoredMemberId,
-  setStoredMemberId,
-} from "./lib";
-import { IdentifyScreen } from "./components/IdentifyScreen";
+import { LoginScreen } from "./components/LoginScreen";
 import { TurnCard } from "./components/TurnCard";
 import { QueueList } from "./components/QueueList";
 import { FairnessBars } from "./components/FairnessBars";
@@ -15,13 +10,32 @@ import { MembersManager } from "./components/MembersManager";
 
 const POLL_MS = 6000;
 
+type Session = { id: string; name: string } | null;
+
 export default function App() {
-  const [meId, setMeId] = useState<string | null>(getStoredMemberId());
+  const [me, setMe] = useState<Session>(null);
+  const [checking, setChecking] = useState(true);
   const [state, setState] = useState<AppState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const timer = useRef<number | null>(null);
+
+  // ¿Hay sesión válida? La cookie decide, no el localStorage.
+  const checkSession = useCallback(async () => {
+    try {
+      const { member } = await api.me();
+      setMe(member);
+    } catch {
+      setMe(null);
+    } finally {
+      setChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
 
   const refresh = useCallback(async () => {
     try {
@@ -33,8 +47,9 @@ export default function App() {
     }
   }, []);
 
-  // Polling ligero para que todos vean el mismo estado casi en tiempo real.
+  // Polling ligero mientras haya sesión, para ver el mismo estado casi en vivo.
   useEffect(() => {
+    if (!me) return;
     refresh();
     function tick() {
       timer.current = window.setTimeout(async () => {
@@ -49,17 +64,12 @@ export default function App() {
       if (timer.current) clearTimeout(timer.current);
       window.removeEventListener("focus", onFocus);
     };
-  }, [refresh]);
+  }, [me, refresh]);
 
-  function pickIdentity(id: string) {
-    if (id) setStoredMemberId(id);
-    setMeId(id || "anon");
-    refresh();
-  }
-
-  function changeUser() {
-    clearStoredMemberId();
-    setMeId(null);
+  async function logout() {
+    await api.logout().catch(() => {});
+    setMe(null);
+    setState(null);
     setShowSettings(false);
   }
 
@@ -69,31 +79,42 @@ export default function App() {
     try {
       setState(await fn());
     } catch (e) {
-      setError((e as Error).message);
-      await refresh(); // resincroniza si el turno cambió bajo nuestros pies
+      const err = e as Error & { status?: number };
+      if (err.status === 401) {
+        // La sesión ha caducado: de vuelta al login.
+        setMe(null);
+        return;
+      }
+      setError(err.message);
+      await refresh();
     } finally {
       setBusy(false);
     }
   }
 
-  if (!meId) {
-    return <IdentifyScreen onPick={pickIdentity} />;
+  if (checking) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center text-cream/40">
+        Cargando…
+      </div>
+    );
   }
 
-  const me = state?.members.find((m) => m.id === meId) ?? null;
+  if (!me) {
+    return <LoginScreen onAuthed={checkSession} />;
+  }
+
+  const meId = me.id;
   const isAssigned = !!state?.assigned && state.assigned.id === meId;
 
   return (
     <div className="min-h-dvh max-w-md mx-auto px-5 pt-6 pb-16">
-      {/* Cabecera */}
       <header className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-display text-xl font-bold text-cream leading-none">
             Picadita <span className="text-mustard">del Viernes</span>
           </h1>
-          <p className="text-cream/50 text-sm mt-1">
-            {me ? `Vas como ${me.name}` : "No identificado"}
-          </p>
+          <p className="text-cream/50 text-sm mt-1">Vas como {me.name}</p>
         </div>
         <button
           onClick={() => setShowSettings((v) => !v)}
@@ -118,13 +139,14 @@ export default function App() {
             onChanged={refresh}
           />
           <button
-            onClick={changeUser}
+            onClick={logout}
             className="tap w-full font-display font-semibold text-cream bg-white/[0.06] hover:bg-white/10 rounded-2xl px-5 py-3 ring-1 ring-white/10"
           >
-            Cambiar de usuario
+            Cerrar sesión
           </button>
           <p className="text-cream/30 text-xs text-center">
-            La identidad se guarda solo en este dispositivo. Sin contraseñas.
+            Tu sesión vive en una cookie de este dispositivo. El PIN se guarda
+            cifrado, nunca en claro.
           </p>
         </div>
       ) : (
@@ -137,8 +159,8 @@ export default function App() {
                 assigned={state.assigned}
                 isMe={isAssigned}
                 busy={busy}
-                onComplete={() => act(() => api.complete(meId))}
-                onDecline={() => act(() => api.decline(meId))}
+                onComplete={() => act(() => api.complete())}
+                onDecline={() => act(() => api.decline())}
               />
               <QueueList
                 queue={state.queue}

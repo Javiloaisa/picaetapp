@@ -1,13 +1,17 @@
--- Esquema de la Picadita del Viernes (Postgres / Neon)
--- Ejecútalo una vez en tu base de datos Neon (SQL Editor o `psql`).
+-- Esquema de la Picadita del Viernes (Postgres)
+-- Ejecútalo una vez en tu base de datos (SQL Editor o `psql`).
 
 create extension if not exists "pgcrypto";  -- para gen_random_uuid()
 
 create table if not exists members (
-  id         uuid primary key default gen_random_uuid(),
-  name       text not null,
-  active     boolean default true,
-  created_at timestamptz default now()
+  id              uuid primary key default gen_random_uuid(),
+  name            text not null,
+  active          boolean default true,
+  -- Autenticación por PIN. pin_hash NULL = cuenta sin reclamar (aún sin PIN).
+  pin_hash        text,
+  failed_attempts int not null default 0,      -- intentos de PIN fallidos seguidos
+  locked_until    timestamptz,                 -- bloqueo temporal tras varios fallos
+  created_at      timestamptz default now()
 );
 
 create table if not exists turns (
@@ -32,8 +36,18 @@ insert into current_state (id) values (1)
   on conflict (id) do nothing;
 
 -- ------------------------------------------------------------------ --
--- Semilla opcional: descomenta y ajusta los nombres de tu equipo.
+-- Semilla del equipo (NECESARIA para arrancar): pon aquí los nombres.
+-- Cada persona reclamará su cuenta poniendo su PIN la primera vez que entre.
+-- (Con login por PIN, añadir gente nueva desde la app requiere estar dentro,
+--  así que el primer roster se siembra aquí.)
 -- ------------------------------------------------------------------ --
 -- insert into members (name) values
 --   ('Javi'), ('Marta'), ('Luis'), ('Ana'),
 --   ('Pablo'), ('Sara'), ('Nico');
+
+-- ------------------------------------------------------------------ --
+-- Migración si ya habías creado la tabla members sin las columnas de PIN:
+-- ------------------------------------------------------------------ --
+-- alter table members add column if not exists pin_hash text;
+-- alter table members add column if not exists failed_attempts int not null default 0;
+-- alter table members add column if not exists locked_until timestamptz;
