@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/* Lenguaje visual de la Picadita: azul marino de fondo, acento mostaza y coral,
+   títulos en Space Grotesk y cuerpo en Archivo. */
+@theme {
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Archivo", ui-sans-serif, system-ui, sans-serif;
+
+  --color-navy-900: #0c1729;
+  --color-navy-800: #12203a;
+  --color-navy-700: #1b2d4d;
+  --color-navy-600: #263c63;
+  --color-mustard: #e8b13a;
+  --color-mustard-soft: #f2c866;
+  --color-coral: #ef6f5b;
+  --color-coral-soft: #f59182;
+  --color-cream: #f4ede0;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: radial-gradient(
+      120% 80% at 50% -10%,
+      var(--color-navy-700) 0%,
+      var(--color-navy-900) 60%
+    )
+    fixed;
+  color: var(--color-cream);
+  -webkit-font-smoothing: antialiased;
+  /* Respeta el notch en iPhone al añadir a pantalla de inicio. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Botón que rebota levemente al pulsar, para que se sienta táctil. */
+.tap {
+  transition: transform 0.08s ease;
+}
+.tap:active {
+  transform: scale(0.96);
+}

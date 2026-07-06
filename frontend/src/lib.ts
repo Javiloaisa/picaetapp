@@ -1,0 +1,54 @@
+// Utilidades pequeñas: identidad local y formato de fechas.
+
+const MEMBER_KEY = "picadita_member_id";
+const DEVICE_KEY = "picadita_device_id";
+
+export function getStoredMemberId(): string | null {
+  return localStorage.getItem(MEMBER_KEY);
+}
+
+export function setStoredMemberId(id: string): void {
+  localStorage.setItem(MEMBER_KEY, id);
+}
+
+export function clearStoredMemberId(): void {
+  localStorage.removeItem(MEMBER_KEY);
+}
+
+// device_id persistente por dispositivo (por si en el futuro sirve para algo).
+export function getDeviceId(): string {
+  let id = localStorage.getItem(DEVICE_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(DEVICE_KEY, id);
+  }
+  return id;
+}
+
+const MONTHS = [
+  "ene", "feb", "mar", "abr", "may", "jun",
+  "jul", "ago", "sep", "oct", "nov", "dic",
+];
+
+export function formatDate(iso: string | null): string {
+  if (!iso) return "nunca";
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${d} ${MONTHS[m - 1]} ${y}`;
+}
+
+export function relativeDays(iso: string | null): string {
+  if (!iso) return "aún no ha comprado";
+  const then = new Date(iso + "T00:00:00");
+  const now = new Date();
+  const days = Math.round(
+    (now.getTime() - then.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  if (days <= 0) return "hoy";
+  if (days === 1) return "hace 1 día";
+  if (days < 7) return `hace ${days} días`;
+  const weeks = Math.round(days / 7);
+  if (weeks === 1) return "hace 1 semana";
+  if (weeks < 5) return `hace ${weeks} semanas`;
+  const months = Math.round(days / 30);
+  return months === 1 ? "hace 1 mes" : `hace ${months} meses`;
+}

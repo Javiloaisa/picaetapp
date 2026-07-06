@@ -1,0 +1,94 @@
+"""Lógica de reparto justo de la picadita.
+
+El objetivo es que a lo largo del año todo el mundo compre un número parecido
+de veces. La regla es sencilla:
+
+  1. Le toca a quien menos veces haya comprado (`completado`).
+  2. Si hay empate, a quien lleve más tiempo sin comprar (o nunca lo haya
+     hecho).
+  3. Se excluye a quien ya dijo "no puedo esta semana" en la ronda actual
+     (`declined_this_round`). Declinar NO cuenta como turno: solo te pospone.
+  4. Si todos los activos han declinado, se resetea la ronda para no bloquear.
+
+Todo se recalcula sobre la marcha a partir del historial de `turns`, así que
+`current_state.assigned_member_id` es solo una caché del resultado.
+"""
+
+from datetime import date
+from typing import Any, Optional
+
+
+def compute_standings(members: list[dict[str, Any]],
+                      turns: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Devuelve, por cada miembro activo, su contador y su último turno.
+
+    `members` son los miembros activos. `turns` son todas las filas de turnos
+    con status 'completado' (ordenadas o no, da igual).
+    """
+    completed_count: dict[str, int] = {}
+    last_completed: dict[str, Optional[date]] = {}
+
+    for t in turns:
+        if t["status"] != "completado":
+            continue
+        mid = str(t["member_id"])
+        completed_count[mid] = completed_count.get(mid, 0) + 1
+        d = t["date"]
+        prev = last_completed.get(mid)
+        if prev is None or d > prev:
+            last_completed[mid] = d
+
+    standings = []
+    for m in members:
+        mid = str(m["id"])
+        standings.append({
+            "id": mid,
+            "name": m["name"],
+            "count": completed_count.get(mid, 0),
+            "last_turn": last_completed.get(mid),
+            "created_at": m["created_at"],
+        })
+    return standings
+
+
+def _sort_key(entry: dict[str, Any]):
+    """Menor contador primero; luego el que lleva más tiempo sin comprar.
+
+    `last_turn` None (nunca compró) debe ir el primero => usamos date.min.
+    Desempate final estable por fecha de alta y nombre.
+    """
+    last = entry["last_turn"] or date.min
+    return (entry["count"], last, entry["created_at"], entry["name"].lower())
+
+
+def order_queue(standings: list[dict[str, Any]],
+                declined: list[str]) -> list[dict[str, Any]]:
+    """Cola ordenada de quién compra antes, ignorando la ronda de declinados."""
+    declined_set = {str(d) for d in declined}
+    ordered = sorted(standings, key=_sort_key)
+    # Los que han declinado esta ronda van al final, manteniendo su orden justo.
+    eligibles = [e for e in ordered if e["id"] not in declined_set]
+    postponed = [e for e in ordered if e["id"] in declined_set]
+    return eligibles + postponed
+
+
+def pick_assigned(standings: list[dict[str, Any]],
+                  declined: list[str]) -> tuple[Optional[str], list[str]]:
+    """Elige al asignado actual y devuelve (member_id, declined_normalizado).
+
+    Si todos los activos han declinado, resetea la ronda (declined vacío).
+    """
+    if not standings:
+        return None, []
+
+    active_ids = {e["id"] for e in standings}
+    declined = [str(d) for d in declined if str(d) in active_ids]
+
+    eligibles = [e for e in standings if e["id"] not in set(declined)]
+    if not eligibles:
+        # Todos declinaron: reseteamos la ronda.
+        declined = []
+        eligibles = standings
+
+    assigned = min(eligibles, key=_sort_key)
+    return assigned["id"], declined
