@@ -1,0 +1,9 @@
+# Contexto de build de Dockerfile.web (raíz del repo).
+.git/
+frontend/node_modules/
+frontend/dist/
+api/__pycache__/
+api/.venv/
+**/__pycache__/
+.env
+*.md

@@ -53,9 +53,13 @@ picadetApp/
 │   ├── logic.py         # algoritmo de reparto justo
 │   ├── db.py            # conexión a Postgres
 │   └── requirements.txt
+│   └── Dockerfile       # imagen de la API
 ├── frontend/            # Vite + React + TS + Tailwind
-├── schema.sql           # tablas de Postgres
-└── vercel.json          # (heredado; el despliegue objetivo es un VPS)
+├── schema.sql           # tablas de Postgres (se aplica al iniciar la BD)
+├── docker-compose.yml   # db + api + caddy
+├── Dockerfile.web       # build del frontend + Caddy
+├── Caddyfile            # reverse proxy + HTTPS
+└── .env.example         # variables de entorno
 ```
 
 ---
@@ -111,25 +115,83 @@ Abre http://localhost:5173.
 
 ---
 
-## Despliegue en Hetzner (VPS)
+## Despliegue en Hetzner (VPS) con Docker Compose
 
-A diferencia de una plataforma serverless, aquí corres FastAPI como **proceso
-permanente** (uvicorn/gunicorn) y sirves el frontend estático, todo detrás de un
-**reverse proxy con HTTPS** (recomendado: Caddy, que gestiona el certificado
-Let's Encrypt solo — importante para que la PWA se instale bien en el móvil).
+Todo el stack corre en un solo servidor con tres contenedores:
 
-> ⚙️ Los ficheros de despliegue (Docker Compose con `postgres` + `api` + `caddy`,
-> Dockerfiles y `Caddyfile`) se añaden en el siguiente paso, una vez decididas
-> dos cosas: si el Postgres va en el mismo servidor o gestionado, y el dominio
-> para el HTTPS.
+| Servicio | Qué es                                                                    |
+| -------- | ------------------------------------------------------------------------- |
+| `db`     | Postgres 16 (datos en el volumen `dbdata`).                               |
+| `api`    | FastAPI con uvicorn.                                                       |
+| `caddy`  | Reverse proxy + **HTTPS automático** + sirve el frontend estático.        |
 
-Pasos generales:
+Ficheros: [`docker-compose.yml`](./docker-compose.yml), [`Dockerfile.web`](./Dockerfile.web),
+[`api/Dockerfile`](./api/Dockerfile), [`Caddyfile`](./Caddyfile), [`.env.example`](./.env.example).
 
-1. Crear el VPS en Hetzner (Ubuntu), instalar Docker + Docker Compose.
-2. Apuntar un dominio (registro A) a la IP del servidor.
-3. `git clone` del repo, crear un `.env` con `DATABASE_URL`, `SECRET_KEY`, `COOKIE_SECURE=1`.
-4. Aplicar `schema.sql` (sembrando el roster del equipo).
-5. `docker compose up -d` y abrir el dominio en el móvil → "añadir a pantalla de inicio".
+### HTTPS sin dominio propio (sslip.io)
+
+Aún sin dominio, tendrás **HTTPS de verdad**: `sslip.io` es un DNS que resuelve
+`TU-IP.sslip.io` a tu IP, y Caddy le saca un certificado Let's Encrypt solo.
+Cuando compres un dominio, solo cambias `SITE_ADDRESS` en el `.env` y reinicias.
+
+### Pasos
+
+1. **Crea el servidor** en Hetzner Cloud (una CX22 con Ubuntu sobra). Anota su IP.
+
+2. **Abre el firewall** para SSH y web. Con el firewall de Hetzner o con `ufw`:
+   ```bash
+   ufw allow 22 && ufw allow 80 && ufw allow 443 && ufw enable
+   ```
+
+3. **Instala Docker** (incluye Compose v2):
+   ```bash
+   curl -fsSL https://get.docker.com | sh
+   ```
+
+4. **Clona el repo** y entra:
+   ```bash
+   git clone https://github.com/Javiloaisa/picaetapp.git && cd picaetapp
+   ```
+
+5. **Siembra tu equipo**: edita [`schema.sql`](./schema.sql) y descomenta la
+   sección de la semilla con los nombres reales (esto se ejecuta solo en el
+   primer arranque de la base de datos).
+
+6. **Configura el `.env`**:
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
+   - `DB_PASSWORD`: invéntate una larga.
+   - `SECRET_KEY`: genera una con `python3 -c "import secrets; print(secrets.token_urlsafe(48))"`.
+   - `SITE_ADDRESS`: tu IP con guiones + `.sslip.io`, p. ej. `203-0-113-5.sslip.io`.
+   - `COOKIE_SECURE`: déjalo en `1`.
+
+7. **Arranca**:
+   ```bash
+   docker compose up -d --build
+   ```
+   La primera vez Caddy tarda unos segundos en emitir el certificado.
+
+8. Abre `https://TU-IP.sslip.io` en el móvil → **añadir a pantalla de inicio**.
+   Cada uno elige su nombre y crea su PIN.
+
+### Operar
+
+```bash
+docker compose logs -f            # ver logs
+docker compose pull && docker compose up -d --build   # actualizar tras git pull
+docker compose down               # parar (los datos persisten en el volumen)
+```
+
+**Backup de la base de datos:**
+```bash
+docker compose exec db pg_dump -U picadita picadita > backup_$(date +%F).sql
+```
+
+> ⚠️ Si ya arrancaste una vez y luego editas la semilla de `schema.sql`, no se
+> vuelve a aplicar (solo corre con la BD vacía). Añade la gente que falte desde
+> ⚙️ en la app, o entra con `docker compose exec db psql -U picadita picadita`.
 
 ---
 

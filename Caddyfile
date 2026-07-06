@@ -1,0 +1,23 @@
+# Caddy: reverse proxy + HTTPS automático + servir el frontend.
+#
+# {$SITE_ADDRESS} viene del .env:
+#   - Con hostname (p.ej. 203-0-113-5.sslip.io) -> Caddy saca certificado
+#     Let's Encrypt solo y sirve por HTTPS. Necesita los puertos 80 y 443 abiertos.
+#   - Con ":80" -> solo HTTP (útil para probar en local).
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# La API conserva el prefijo /api (FastAPI enruta con ese prefijo).
+	@api path /api/*
+	handle @api {
+		reverse_proxy api:8000
+	}
+
+	# Frontend estático (SPA): si no existe el fichero, cae a index.html.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

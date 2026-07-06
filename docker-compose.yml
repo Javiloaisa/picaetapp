@@ -1,0 +1,56 @@
+# Stack completo de la Picadita en un solo VPS (Hetzner):
+#   db    -> Postgres (datos en un volumen)
+#   api   -> FastAPI (uvicorn)
+#   caddy -> reverse proxy + HTTPS automático + frontend estático
+#
+# Copia .env.example a .env, rellénalo y: docker compose up -d --build
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: picadita
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD en .env}
+      POSTGRES_DB: picadita
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      # Se ejecuta SOLO en el primer arranque (BD vacía): crea tablas y siembra.
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U picadita -d picadita"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://picadita:${DB_PASSWORD}@db:5432/picadita
+      SECRET_KEY: ${SECRET_KEY:?falta SECRET_KEY en .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-1}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?falta SITE_ADDRESS en .env}
+    depends_on:
+      - api
+    volumes:
+      - caddydata:/data
+      - caddyconfig:/config
+
+volumes:
+  dbdata:
+  caddydata:
+  caddyconfig:
