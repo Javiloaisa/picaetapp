@@ -92,5 +92,5 @@ def require_login(request: Request) -> str:
     """Dependencia de FastAPI: exige sesión válida y devuelve el member_id."""
     mid = read_member_id(request)
     if not mid:
-        raise HTTPException(401, "Necesitas iniciar sesión.")
+        raise HTTPException(401, "Necessites iniciar sessió.")
     return mid
