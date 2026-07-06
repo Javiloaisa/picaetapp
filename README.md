@@ -1,12 +1,16 @@
-# 🫒 La Picadita del Viernes
+# 🫒 La Picaeta del Divendres
 
 App interna para que un equipo pequeño (7-9 personas) reparta de forma **justa**
-quién compra la picadita cada viernes. Mobile-first, login por **PIN**, estado
-compartido en (casi) tiempo real.
+quién compra la picaeta cada viernes. Mobile-first, login por **PIN**, estado
+compartido en (casi) tiempo real. **Interfaz en valencià.**
 
 - **Frontend:** React + Vite + TypeScript + Tailwind v4 (PWA, "añadir a pantalla de inicio")
 - **Backend:** FastAPI (proceso permanente con uvicorn) + Postgres
 - **Pensado para desplegar en un VPS** (Hetzner) detrás de un reverse proxy con HTTPS.
+
+Funciones clave: reparto justo, **vacaciones** (te apartas del turno mientras
+estás fuera) y **notificaciones push** (al recordar a alguien, le salta un aviso
+en el móvil).
 
 ---
 
@@ -18,9 +22,27 @@ compartido en (casi) tiempo real.
   pero **no** te cuenta el turno: solo te pospone. Se recalcula el siguiente elegible.
 - Si _todos_ los activos dicen que no, la ronda se resetea para no bloquear.
 - **"Ya compré"** registra el turno, limpia la ronda de declinados y recalcula al siguiente.
+- **Vacaciones**: quien se marca de vacaciones (`on_vacation`) queda fuera del
+  reparto (ni asignado ni en cola) hasta que vuelve. No pierde su sitio: al
+  volver, el reparto justo lo tiene en cuenta según su contador.
 
 Todo se recalcula sobre el historial de `turns`, así que el estado nunca se
 "desincroniza": `current_state.assigned_member_id` es solo una caché.
+
+---
+
+## Notificaciones push (Web Push)
+
+Cuando alguien pulsa "Recordar-li-ho a X", a X le salta una **notificación en el
+móvil** (si la ha activado desde ⚙️). Usa Web Push con claves **VAPID**:
+
+- Claves en el `.env` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`).
+  Genera un par con `cd api && python gen_vapid.py`.
+- El navegador se suscribe (service worker en [`frontend/public/sw.js`](./frontend/public/sw.js))
+  y el backend envía con `pywebpush`. Las suscripciones caducadas (404/410) se limpian solas.
+- ⚠️ **iPhone**: las notificaciones web solo funcionan si la app está **añadida a
+  la pantalla de inicio** (requisito de Apple, iOS 16.4+). En Android van en cuanto
+  se da permiso.
 
 ---
 
@@ -208,6 +230,11 @@ docker compose exec db pg_dump -U picadita picadita > backup_$(date +%F).sql
 | `GET`    | `/api/members`          |   —    | Miembros activos (para el login; incluye `has_pin`).         |
 | `POST`   | `/api/members`          |   ✔    | Añadir miembro `{name}`.                                     |
 | `DELETE` | `/api/members/{id}`     |   ✔    | Desactivar (soft delete) y recalcular.                       |
+| `POST`   | `/api/members/vacation` |   ✔    | Activar/desactivar tus vacaciones `{on}`.                    |
+| `GET`    | `/api/push/public-key`  |   —    | Clave pública VAPID (para suscribirse).                      |
+| `POST`   | `/api/push/subscribe`   |   ✔    | Guarda tu suscripción push `{subscription}`.                 |
+| `POST`   | `/api/push/unsubscribe` |   ✔    | Borra una suscripción `{endpoint}`.                          |
+| `POST`   | `/api/push/remind`      |   ✔    | Envía push a quien le toca `{member_id}`.                    |
 | `POST`   | `/api/turns/complete`   |   ✔    | "Ya compré" (el actor es el de la sesión; debe ser el asignado). |
 | `POST`   | `/api/turns/decline`    |   ✔    | "No puedo esta semana".                                      |
 
@@ -216,5 +243,4 @@ docker compose exec db pg_dump -U picadita picadita > backup_$(date +%F).sql
 ## Fuera de alcance (por ahora)
 
 - OAuth / login social.
-- Notificaciones push (se puede añadir con un cron + bot de WhatsApp/Telegram).
 - Registro de cuánto se gastó cada vez (posible v2).
