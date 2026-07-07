@@ -61,18 +61,18 @@ insert into current_state (id) values (1)
 -- Se siembra el histórico reciente: las picaetas ya COMPLETADAS de cada quien
 -- (columnas E y F del Excel de Teresa, solo fechas pasadas) como turnos
 -- 'completado'. Con esto, al arrancar, la app calcula sola el reparto justo:
--- el siguiente en comprar sale JUAN I (el que lleva más tiempo sin comprar) y
--- detrás JORDI.
+-- el siguiente en comprar sale JUAN IVARS (el que lleva más tiempo sin comprar)
+-- y detrás JORDI.
 --
--- OJO: la fecha 10/07/2026 de Juan I NO se siembra: es su turno de ESTE
--- viernes (aún no comprada). La marcará él en la app con "Ja l'he portada".
+-- OJO: la fecha 10/07/2026 de Juan Ivars NO se siembra: es su turno de ESTE
+-- viernes (aún no comprada). Al pasar el viernes se da por hecho.
 -- Juanvi queda FUERA a propósito (ya no participa).
 -- Corre SOLO con la BD vacía (primer arranque de Postgres).
 -- ------------------------------------------------------------------ --
 with nuevos as (
   insert into members (name) values
-    ('Marta'), ('Teresa'), ('Jordi'), ('Santi'), ('JM'), ('MC'),
-    ('JP'), ('Amparo'), ('Aaron'), ('Juan I'), ('Bernardino'), ('Demetrio')
+    ('Marta'), ('Teresa'), ('Jordi'), ('Santi'), ('Jose María'), ('Mari Cruz'),
+    ('Joan Pastor'), ('Amparo'), ('Aaron'), ('Juan Ivars'), ('Bernardino'), ('Demetrio')
   returning id, name
 )
 insert into turns (member_id, date, status)
@@ -83,17 +83,17 @@ join (values
   ('Marta',      date '2026-04-17'),  -- F
   ('Teresa',     date '2026-02-27'),
   ('Teresa',     date '2026-05-29'),
-  ('Jordi',      date '2026-04-10'),  -- 2º en la cola (después de Juan I)
-  ('Santi',      date '2026-06-19'),
-  ('JM',         date '2026-03-13'),
-  ('JM',         date '2026-06-12'),
-  ('MC',         date '2026-05-15'),
-  ('JP',         date '2026-06-26'),
-  ('Amparo',     date '2026-02-20'),
-  ('Amparo',     date '2026-07-03'),
-  ('Aaron',      date '2026-06-05'),
-  ('Juan I',     date '2026-03-20'),  -- última COMPLETADA -> le toca ESTA semana
-  -- ('Juan I',  date '2026-07-10'),  -- ESTE viernes, aún pendiente: NO se siembra
+  ('Jordi',       date '2026-04-10'),  -- 2º en la cola (después de Juan Ivars)
+  ('Santi',       date '2026-06-19'),
+  ('Jose María',  date '2026-03-13'),
+  ('Jose María',  date '2026-06-12'),
+  ('Mari Cruz',   date '2026-05-15'),
+  ('Joan Pastor', date '2026-06-26'),
+  ('Amparo',      date '2026-02-20'),
+  ('Amparo',      date '2026-07-03'),
+  ('Aaron',       date '2026-06-05'),
+  ('Juan Ivars',  date '2026-03-20'),  -- última COMPLETADA -> le toca ESTA semana
+  -- ('Juan Ivars', date '2026-07-10'), -- ESTE viernes, aún pendiente: NO se siembra
   ('Bernardino', date '2026-03-06'),
   ('Bernardino', date '2026-05-08'),
   ('Demetrio',   date '2026-04-24')
