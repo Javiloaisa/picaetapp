@@ -10,17 +10,17 @@ export function History({ history }: Props) {
 
   return (
     <section>
-      <h3 className="font-display font-semibold text-cream/80 mb-3">
+      <h3 className="font-display font-semibold text-ink/80 mb-3">
         Últimes picaetes
       </h3>
       <ul className="space-y-1.5">
         {history.map((h) => (
           <li
             key={h.id}
-            className="flex items-center justify-between text-sm rounded-xl px-4 py-2.5 bg-white/[0.03]"
+            className="flex items-center justify-between text-sm rounded-xl px-4 py-2.5 bg-navy-900/[0.03]"
           >
-            <span className="text-cream/90">🫒 {h.name}</span>
-            <span className="text-cream/40">{formatDate(h.date)}</span>
+            <span className="text-ink/90">🫒 {h.name}</span>
+            <span className="text-ink/40">{formatDate(h.date)}</span>
           </li>
         ))}
       </ul>

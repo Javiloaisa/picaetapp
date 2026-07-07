@@ -177,7 +177,7 @@ export default function App() {
 
   if (checking) {
     return (
-      <div className="min-h-dvh flex items-center justify-center text-cream/40">
+      <div className="min-h-dvh flex items-center justify-center text-ink/40">
         Carregant…
       </div>
     );
@@ -198,14 +198,14 @@ export default function App() {
     <div className="min-h-dvh max-w-md mx-auto px-5 pt-6 pb-16">
       <header className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-display text-xl font-bold text-cream leading-none">
+          <h1 className="font-display text-xl font-bold text-ink leading-none">
             Picaeta <span className="text-mustard">del Divendres</span>
           </h1>
-          <p className="text-cream/50 text-sm mt-1">Vas com a {me.name}</p>
+          <p className="text-ink/50 text-sm mt-1">Vas com a {me.name}</p>
         </div>
         <button
           onClick={() => setShowSettings((v) => !v)}
-          className="tap rounded-full bg-white/[0.06] hover:bg-white/10 w-11 h-11 flex items-center justify-center text-xl"
+          className="tap rounded-full bg-navy-900/[0.06] hover:bg-navy-900/10 w-11 h-11 flex items-center justify-center text-xl"
           aria-label="Ajustos"
         >
           {showSettings ? "✕" : "⚙️"}
@@ -218,7 +218,7 @@ export default function App() {
         </p>
       )}
       {notice && (
-        <div className="bg-mustard/15 text-cream rounded-2xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-3">
+        <div className="bg-mustard/15 text-ink rounded-2xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-3">
           <span>{notice.text}</span>
           {notice.wa && (
             <a
@@ -236,11 +236,11 @@ export default function App() {
       {showSettings ? (
         <div className="space-y-6">
           {/* Vacances: amb data de tornada, tornes sol (no cal recordar-ho). */}
-          <section className="rounded-2xl bg-white/[0.04] p-4">
-            <p className="font-display font-semibold text-cream">Vacances</p>
+          <section className="rounded-2xl bg-navy-900/[0.04] p-4">
+            <p className="font-display font-semibold text-ink">Vacances</p>
             {onVacation ? (
               <>
-                <p className="text-cream/50 text-sm mt-1">
+                <p className="text-ink/50 text-sm mt-1">
                   Estàs fora fins al <b>{formatDate(awayUntil)}</b>. No t'assignaran
                   cap picaeta; tornaràs sol eixe dia.
                 </p>
@@ -254,7 +254,7 @@ export default function App() {
               </>
             ) : (
               <>
-                <p className="text-cream/50 text-sm mt-1">
+                <p className="text-ink/50 text-sm mt-1">
                   Te'n vas uns dies? Posa la data de tornada i no t'assignaran cap
                   picaeta fins llavors. No cal recordar tornar.
                 </p>
@@ -264,7 +264,7 @@ export default function App() {
                     value={awayDate}
                     min={todayIso}
                     onChange={(e) => setAwayDate(e.target.value)}
-                    className="flex-1 min-w-0 rounded-2xl bg-white/[0.06] px-4 py-2 text-cream outline-none focus:ring-2 focus:ring-mustard/60"
+                    className="flex-1 min-w-0 rounded-2xl bg-navy-900/[0.06] px-4 py-2 text-ink outline-none focus:ring-2 focus:ring-mustard/60"
                   />
                   <button
                     onClick={() => awayDate && setAway(awayDate)}
@@ -279,13 +279,13 @@ export default function App() {
           </section>
 
           {/* Notificacions */}
-          <section className="rounded-2xl bg-white/[0.04] p-4">
+          <section className="rounded-2xl bg-navy-900/[0.04] p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-display font-semibold text-cream">
+                <p className="font-display font-semibold text-ink">
                   Notificacions
                 </p>
-                <p className="text-cream/50 text-sm">
+                <p className="text-ink/50 text-sm">
                   {pushState === "on"
                     ? "Rebràs un avís al mòbil quan et recorden que et toca."
                     : pushState === "unsupported"
@@ -298,7 +298,7 @@ export default function App() {
                   onClick={toggleNotifications}
                   className={`tap shrink-0 font-display font-semibold rounded-2xl px-4 py-2 ${
                     pushState === "on"
-                      ? "text-cream bg-white/10 hover:bg-white/15"
+                      ? "text-ink bg-navy-900/10 hover:bg-navy-900/15"
                       : "text-navy-900 bg-mustard hover:bg-mustard-soft"
                   }`}
                 >
@@ -315,11 +315,11 @@ export default function App() {
           />
           <button
             onClick={logout}
-            className="tap w-full font-display font-semibold text-cream bg-white/[0.06] hover:bg-white/10 rounded-2xl px-5 py-3 ring-1 ring-white/10"
+            className="tap w-full font-display font-semibold text-ink bg-navy-900/[0.06] hover:bg-navy-900/10 rounded-2xl px-5 py-3 ring-1 ring-navy-900/10"
           >
             Tancar sessió
           </button>
-          <p className="text-cream/30 text-xs text-center">
+          <p className="text-ink/30 text-xs text-center">
             La sessió viu en una cookie d'este dispositiu. El PIN es guarda
             xifrat, mai en clar.
           </p>
@@ -327,11 +327,11 @@ export default function App() {
       ) : (
         <main className="space-y-8">
           {!state ? (
-            <p className="text-cream/40">Carregant…</p>
+            <p className="text-ink/40">Carregant…</p>
           ) : (
             <>
               {onVacation && (
-                <p className="text-cream/60 text-sm bg-white/[0.04] rounded-2xl px-4 py-3">
+                <p className="text-ink/60 text-sm bg-navy-900/[0.04] rounded-2xl px-4 py-3">
                   🏖️ Estàs de vacances: no t'assignaran cap picaeta. Torna-hi des
                   de ⚙️ quan tornes.
                 </p>
@@ -357,8 +357,8 @@ export default function App() {
         </main>
       )}
 
-      <footer className="text-center text-cream/20 text-xs mt-12">
-        Fet amb fam · Comboi Labs
+      <footer className="text-center text-ink/25 text-xs mt-12">
+        Fet amb fam 🫒
       </footer>
     </div>
   );

@@ -31,10 +31,10 @@ export function LoginScreen({ onAuthed }: Props) {
   return (
     <div className="min-h-dvh flex flex-col justify-center px-6 py-10 max-w-md mx-auto">
       <div className="text-5xl mb-3">🫒</div>
-      <h1 className="font-display text-3xl font-bold text-cream leading-tight">
+      <h1 className="font-display text-3xl font-bold text-ink leading-tight">
         La Picaeta del Divendres
       </h1>
-      <p className="text-cream/60 mt-2 mb-8">
+      <p className="text-ink/60 mt-2 mb-8">
         Qui eres? Tria el teu nom i entra amb el teu PIN.
       </p>
 
@@ -45,11 +45,11 @@ export function LoginScreen({ onAuthed }: Props) {
       )}
 
       {members === null && !error && (
-        <p className="text-cream/40">Carregant la colla…</p>
+        <p className="text-ink/40">Carregant la colla…</p>
       )}
 
       {members && members.length === 0 && (
-        <p className="text-cream/60">
+        <p className="text-ink/60">
           Encara no hi ha ningú en l'equip. Cal sembrar la llista a la base de
           dades (mira el README). 🌱
         </p>
@@ -121,15 +121,15 @@ function PinStep({
     <div className="min-h-dvh flex flex-col justify-center px-6 py-10 max-w-md mx-auto">
       <button
         onClick={onBack}
-        className="tap text-cream/60 hover:text-cream text-sm mb-8 self-start"
+        className="tap text-ink/60 hover:text-ink text-sm mb-8 self-start"
       >
         ← No soc {member.name}
       </button>
 
-      <h1 className="font-display text-2xl font-bold text-cream">
+      <h1 className="font-display text-2xl font-bold text-ink">
         Hola, {member.name} 👋
       </h1>
-      <p className="text-cream/60 mt-2 mb-8">
+      <p className="text-ink/60 mt-2 mb-8">
         {isNew
           ? "És la teua primera vegada: crea un PIN de 4-6 xifres per al teu compte."
           : "Introduïx el teu PIN per a entrar."}
@@ -149,7 +149,7 @@ function PinStep({
           inputMode="numeric"
           autoComplete="off"
           placeholder="PIN"
-          className="text-center tracking-[0.5em] font-display text-2xl rounded-2xl bg-white/[0.06] px-4 py-4 text-cream placeholder:text-cream/30 placeholder:tracking-normal outline-none focus:ring-2 focus:ring-mustard/60"
+          className="text-center tracking-[0.5em] font-display text-2xl rounded-2xl bg-navy-900/[0.06] px-4 py-4 text-ink placeholder:text-ink/30 placeholder:tracking-normal outline-none focus:ring-2 focus:ring-mustard/60"
         />
         {isNew && (
           <input
@@ -160,7 +160,7 @@ function PinStep({
             inputMode="numeric"
             autoComplete="off"
             placeholder="Repetix el PIN"
-            className="text-center tracking-[0.5em] font-display text-2xl rounded-2xl bg-white/[0.06] px-4 py-4 text-cream placeholder:text-cream/30 placeholder:tracking-normal outline-none focus:ring-2 focus:ring-mustard/60"
+            className="text-center tracking-[0.5em] font-display text-2xl rounded-2xl bg-navy-900/[0.06] px-4 py-4 text-ink placeholder:text-ink/30 placeholder:tracking-normal outline-none focus:ring-2 focus:ring-mustard/60"
           />
         )}
         <button
@@ -173,7 +173,7 @@ function PinStep({
       </form>
 
       {!isNew && (
-        <p className="text-cream/30 text-xs text-center mt-6">
+        <p className="text-ink/30 text-xs text-center mt-6">
           Has oblidat el PIN? Demana a qualsevol de l'equip que te'l reinicie des
           de ⚙️.
         </p>

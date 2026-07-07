@@ -1,24 +1,30 @@
 @import "tailwindcss";
 
-/* Lenguaje visual de la Picadita: azul marino de fondo, acento mostaza y coral,
-   títulos en Space Grotesk y cuerpo en Archivo. */
+/* Lenguaje visual de la Picaeta (TEMA CLARO): fondo crema, tinta azul marino,
+   acento mostaza y coral. Títulos en Space Grotesk y cuerpo en Archivo. */
 @theme {
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Archivo", ui-sans-serif, system-ui, sans-serif;
 
-  --color-navy-900: #0c1729;
-  --color-navy-800: #12203a;
-  --color-navy-700: #1b2d4d;
-  --color-navy-600: #263c63;
-  --color-mustard: #e8b13a;
-  --color-mustard-soft: #f2c866;
-  --color-coral: #ef6f5b;
-  --color-coral-soft: #f59182;
-  --color-cream: #f4ede0;
+  /* Azul marino: ahora se usa como TINTA (texto) y como tintes sutiles de
+     superficie (navy-900/opacity sobre el fondo claro). */
+  --color-navy-900: #16233b;
+  --color-navy-800: #1f2f4d;
+  --color-navy-700: #29406a;
+  --color-navy-600: #34517f;
+
+  /* Acentos un poco más profundos para que contrasten sobre el fondo claro. */
+  --color-mustard: #cf9518;
+  --color-mustard-soft: #e8b13a;
+  --color-coral: #db5640;
+  --color-coral-soft: #ef6f5b;
+
+  --color-cream: #f6f0e5; /* tono del fondo claro */
+  --color-ink: #1b2942;   /* color de texto principal (text-ink) */
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html,
@@ -31,12 +37,12 @@ body {
   margin: 0;
   font-family: var(--font-body);
   background: radial-gradient(
-      120% 80% at 50% -10%,
-      var(--color-navy-700) 0%,
-      var(--color-navy-900) 60%
+      120% 80% at 50% -8%,
+      #fdf9f2 0%,
+      #efe6d6 64%
     )
     fixed;
-  color: var(--color-cream);
+  color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   /* Respeta el notch en iPhone al añadir a pantalla de inicio. */
   padding: env(safe-area-inset-top) env(safe-area-inset-right)

@@ -65,7 +65,7 @@ export function MembersManager({ members, meId, onChanged }: Props) {
 
   return (
     <section>
-      <h3 className="font-display font-semibold text-cream/80 mb-3">L'equip</h3>
+      <h3 className="font-display font-semibold text-ink/80 mb-3">L'equip</h3>
 
       <form onSubmit={add} className="flex gap-2 mb-4">
         <input
@@ -73,7 +73,7 @@ export function MembersManager({ members, meId, onChanged }: Props) {
           onChange={(e) => setName(e.target.value)}
           placeholder="Afegir algú…"
           maxLength={60}
-          className="flex-1 rounded-2xl bg-white/[0.06] px-4 py-3 text-cream placeholder:text-cream/30 outline-none focus:ring-2 focus:ring-mustard/60"
+          className="flex-1 rounded-2xl bg-navy-900/[0.06] px-4 py-3 text-ink placeholder:text-ink/30 outline-none focus:ring-2 focus:ring-mustard/60"
         />
         <button
           type="submit"
@@ -90,9 +90,9 @@ export function MembersManager({ members, meId, onChanged }: Props) {
         {members.map((m) => (
           <li
             key={m.id}
-            className="flex items-center justify-between rounded-2xl bg-white/[0.04] px-4 py-3"
+            className="flex items-center justify-between rounded-2xl bg-navy-900/[0.04] px-4 py-3"
           >
-            <span className="text-cream">
+            <span className="text-ink">
               {m.name}
               {m.id === meId && (
                 <span className="text-mustard text-xs ml-2">(tú)</span>
@@ -102,14 +102,14 @@ export function MembersManager({ members, meId, onChanged }: Props) {
               <button
                 onClick={() => resetPin(m.id, m.name)}
                 disabled={busy}
-                className="tap text-cream/40 hover:text-mustard text-sm disabled:opacity-40"
+                className="tap text-ink/40 hover:text-mustard text-sm disabled:opacity-40"
               >
                 reiniciar PIN
               </button>
               <button
                 onClick={() => remove(m.id, m.name)}
                 disabled={busy}
-                className="tap text-cream/40 hover:text-coral text-sm disabled:opacity-40"
+                className="tap text-ink/40 hover:text-coral text-sm disabled:opacity-40"
               >
                 llevar
               </button>
