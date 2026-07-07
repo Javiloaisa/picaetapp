@@ -32,7 +32,7 @@ export function LoginScreen({ onAuthed }: Props) {
     <div className="min-h-dvh flex flex-col justify-center px-6 py-10 max-w-md mx-auto">
       <div className="text-5xl mb-3">🫒</div>
       <h1 className="font-display text-3xl font-bold text-ink leading-tight">
-        La Picaeta del Divendres
+        PicaetApp
       </h1>
       <p className="text-ink/60 mt-2 mb-8">
         Qui eres? Tria el teu nom i entra amb el teu PIN.

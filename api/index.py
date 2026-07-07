@@ -35,7 +35,7 @@ def _today() -> date:
     return datetime.now(TZ).date()
 
 
-app = FastAPI(title="Picaeta del Divendres")
+app = FastAPI(title="PicaetApp")
 
 app.add_middleware(
     CORSMiddleware,

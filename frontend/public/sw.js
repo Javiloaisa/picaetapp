@@ -13,7 +13,7 @@ self.addEventListener("push", (event) => {
   } catch (e) {
     data = {};
   }
-  const title = data.title || "Picaeta del Divendres";
+  const title = data.title || "PicaetApp";
   const options = {
     body: data.body || "",
     icon: "/icon-192.png",

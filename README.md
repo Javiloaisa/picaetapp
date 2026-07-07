@@ -1,4 +1,4 @@
-# 🫒 La Picaeta del Divendres
+# 🫒 PicaetApp
 
 App interna para que un equipo pequeño (7-9 personas) reparta de forma **justa**
 quién compra la picaeta cada viernes. Mobile-first, login por **PIN**, estado

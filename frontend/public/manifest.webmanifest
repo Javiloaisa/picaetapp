@@ -1,6 +1,6 @@
 {
-  "name": "La Picaeta del Divendres",
-  "short_name": "Picaeta",
+  "name": "PicaetApp",
+  "short_name": "PicaetApp",
   "description": "A qui li toca portar la picaeta esta setmana.",
   "start_url": "/",
   "display": "standalone",
