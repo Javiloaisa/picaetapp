@@ -256,7 +256,7 @@ export default function App() {
               <>
                 <p className="text-ink/50 text-sm mt-1">
                   Te'n vas uns dies? Posa la data de tornada i no t'assignaran cap
-                  picaeta fins llavors. No cal recordar tornar.
+                  picaeta. No cal recordar tornar.
                 </p>
                 <div className="flex gap-2 mt-3">
                   <input
