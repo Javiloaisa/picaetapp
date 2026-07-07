@@ -32,18 +32,21 @@ def configured() -> bool:
 
 
 def send(subscription: dict[str, Any], title: str, body: str,
-         url: str = "/") -> tuple[bool, int]:
+         url: str = "/", kind: Optional[str] = None) -> tuple[bool, int]:
     """Envía una notificación. Devuelve (enviada, http_status).
 
-    status 404/410 significa que la suscripción caducó y hay que borrarla.
+    `kind` viaja en el payload como "type": el service worker lo usa para
+    decidir si pinta botones de acción (p. ej. kind="turn" -> "No puc" /
+    "De vacances"). status 404/410 significa que la suscripción caducó.
     """
     key = _private_key()
     if not key:
         return False, 0
+    payload = {"title": title, "body": body, "url": url, "type": kind}
     try:
         webpush(
             subscription_info=subscription,
-            data=json.dumps({"title": title, "body": body, "url": url}),
+            data=json.dumps(payload),
             vapid_private_key=key,
             vapid_claims={"sub": _subject()},
             timeout=10,

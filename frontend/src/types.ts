@@ -3,7 +3,7 @@ export interface MemberStanding {
   name: string;
   count: number;
   last_turn: string | null; // ISO date o null si nunca compró
-  on_vacation: boolean;
+  away_until: string | null; // ISO date de vuelta de vacaciones, o null
 }
 
 export interface HistoryEntry {
@@ -28,7 +28,7 @@ export interface Member {
 }
 
 export interface Me {
-  member: { id: string; name: string; on_vacation: boolean } | null;
+  member: { id: string; name: string; away_until: string | null } | null;
 }
 
 export interface RemindResult {

@@ -59,15 +59,15 @@ export const api = {
   removeMember: (id: string) =>
     req<AppState>(`/api/members/${id}`, { method: "DELETE" }),
 
-  setVacation: (on: boolean) =>
-    req<AppState>("/api/members/vacation", {
+  // Fecha de vuelta de vacaciones (ISO 'YYYY-MM-DD') o null para volver ya.
+  setAway: (until: string | null) =>
+    req<AppState>("/api/members/away", {
       method: "POST",
-      body: JSON.stringify({ on }),
+      body: JSON.stringify({ until }),
     }),
 
-  // --- acciones sobre el turno (el actor lo pone el servidor por la sesión) ---
-  complete: () => req<AppState>("/api/turns/complete", { method: "POST" }),
-
+  // --- acción sobre el turno (el actor lo pone el servidor por la sesión) ---
+  // "Ja l'he portada" ya no existe: al pasar el viernes se da por hecho.
   decline: () => req<AppState>("/api/turns/decline", { method: "POST" }),
 
   // --- notificaciones push ---

@@ -20,11 +20,16 @@ en el móvil).
 - Le toca a **quien menos lleve**; si hay empate, a quien **lleve más tiempo sin comprar** (o nunca lo haya hecho); último desempate por orden alfabético.
 - **"Esta semana no puedo"** te aparta de la ronda actual (`declined_this_round`)
   pero **no** te cuenta el turno: solo te pospone. Se recalcula el siguiente elegible.
+  Al declinar, a quien le pase el turno le llega un **aviso push** automático.
 - Si _todos_ los activos dicen que no, la ronda se resetea para no bloquear.
-- **"Ya compré"** registra el turno, limpia la ronda de declinados y recalcula al siguiente.
-- **Vacaciones**: quien se marca de vacaciones (`on_vacation`) queda fuera del
-  reparto (ni asignado ni en cola) hasta que vuelve. No pierde su sitio: al
-  volver, el reparto justo lo tiene en cuenta según su contador.
+- **Se da por hecho al pasar el viernes**: nadie tiene que marcar "ya compré".
+  En cuanto pasa el viernes, la app registra el turno del asignado de esa semana
+  y avanza (`_catch_up` en [`api/index.py`](./api/index.py)). Si el servidor
+  estuvo apagado, se pone al día en cuanto alguien abre la app.
+- **Vacaciones con fecha de vuelta**: te marcas de vacaciones **hasta una fecha**
+  (`away_until`). Mientras no llega, quedas fuera del reparto; al pasarla,
+  **vuelves solo** (no hay que acordarse). No pierdes tu sitio: el reparto justo
+  te tiene en cuenta según tu contador. Para una sola semana, usa "no puedo".
 
 Todo se recalcula sobre el historial de `turns`, así que el estado nunca se
 "desincroniza": `current_state.assigned_member_id` es solo una caché.
@@ -33,16 +38,28 @@ Todo se recalcula sobre el historial de `turns`, así que el estado nunca se
 
 ## Notificaciones push (Web Push)
 
-Cuando alguien pulsa "Recordar-li-ho a X", a X le salta una **notificación en el
-móvil** (si la ha activado desde ⚙️). Usa Web Push con claves **VAPID**:
+La app **avisa sola** a quien le toca, para que nadie tenga que acordarse de
+entrar. Usa Web Push con claves **VAPID**:
 
+- **Aviso semanal automático**: un planificador (APScheduler, dentro del proceso
+  de la API) manda cada **lunes por la mañana** un push al asignado de esa semana
+  (y otro al arrancar, por si se despliega a mitad de semana). Es idempotente:
+  no repite el aviso a la misma persona/semana.
+- **Botones de respuesta** en el aviso "et toca": **🙈 No puc** (declina la semana)
+  y **🏖️ De vacances** (abre la app para poner la fecha de vuelta). Al declinar,
+  el turno pasa al siguiente y **a él le llega otro aviso**.
+- También sigue el botón manual **"Recordar-li-ho a X"** desde la ficha del turno.
 - Claves en el `.env` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`).
-  Genera un par con `cd api && python gen_vapid.py`.
-- El navegador se suscribe (service worker en [`frontend/public/sw.js`](./frontend/public/sw.js))
-  y el backend envía con `pywebpush`. Las suscripciones caducadas (404/410) se limpian solas.
+  Genera un par con `cd api && python gen_vapid.py`. El backend envía con
+  `pywebpush` (service worker en [`frontend/public/sw.js`](./frontend/public/sw.js));
+  las suscripciones caducadas (404/410) se limpian solas.
 - ⚠️ **iPhone**: las notificaciones web solo funcionan si la app está **añadida a
-  la pantalla de inicio** (requisito de Apple, iOS 16.4+). En Android van en cuanto
-  se da permiso.
+  la pantalla de inicio** (requisito de Apple, iOS 16.4+). Además, iOS **no pinta
+  los botones** del aviso: al tocarlo se **abre la app** y ahí se responde. En
+  Android los botones van en cuanto se da permiso.
+
+> Como el aviso semanal corre en el propio proceso, la API arranca con **1 worker**
+> (ver [`api/Dockerfile`](./api/Dockerfile)); con varios se dispararía repetido.
 
 ---
 
@@ -230,13 +247,14 @@ docker compose exec db pg_dump -U picadita picadita > backup_$(date +%F).sql
 | `GET`    | `/api/members`          |   —    | Miembros activos (para el login; incluye `has_pin`).         |
 | `POST`   | `/api/members`          |   ✔    | Añadir miembro `{name}`.                                     |
 | `DELETE` | `/api/members/{id}`     |   ✔    | Desactivar (soft delete) y recalcular.                       |
-| `POST`   | `/api/members/vacation` |   ✔    | Activar/desactivar tus vacaciones `{on}`.                    |
+| `POST`   | `/api/members/away`     |   ✔    | Fecha de vuelta de vacaciones `{until}` (ISO) o `null`.      |
 | `GET`    | `/api/push/public-key`  |   —    | Clave pública VAPID (para suscribirse).                      |
 | `POST`   | `/api/push/subscribe`   |   ✔    | Guarda tu suscripción push `{subscription}`.                 |
 | `POST`   | `/api/push/unsubscribe` |   ✔    | Borra una suscripción `{endpoint}`.                          |
 | `POST`   | `/api/push/remind`      |   ✔    | Envía push a quien le toca `{member_id}`.                    |
-| `POST`   | `/api/turns/complete`   |   ✔    | "Ya compré" (el actor es el de la sesión; debe ser el asignado). |
-| `POST`   | `/api/turns/decline`    |   ✔    | "No puedo esta semana".                                      |
+| `POST`   | `/api/turns/decline`    |   ✔    | "No puedo esta semana" (y avisa por push al siguiente).      |
+
+> No hay endpoint de "ya compré": el turno se da por hecho al pasar el viernes.
 
 ---
 

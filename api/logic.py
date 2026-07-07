@@ -14,8 +14,45 @@ Todo se recalcula sobre la marcha a partir del historial de `turns`, así que
 `current_state.assigned_member_id` es solo una caché del resultado.
 """
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Optional
+
+
+def friday_of_week(d: date) -> date:
+    """La fecha del viernes de la semana de `d` (la picaeta es en viernes).
+
+    Lunes(0)..Domingo(6); viernes = 4. Para un sábado/domingo devuelve el
+    viernes que acaba de pasar; para lunes-viernes, el de esa misma semana.
+    """
+    return d + timedelta(days=(4 - d.weekday()))
+
+
+def missing_fridays(turn_dates: list[date], today: date,
+                    max_weeks: int = 520) -> list[date]:
+    """Viernes ya pasados (anteriores a hoy) sin picaeta registrada.
+
+    Se arranca desde la semana siguiente al último turno conocido y se avanza
+    semana a semana hasta el último viernes estrictamente anterior a `today`.
+    Así, "si pasa el viernes, se da por hecho": cada viernes vencido que no
+    tenga turno se rellenará con quien estuviera asignado.
+    """
+    if not turn_dates:
+        return []
+    done_weeks = {friday_of_week(d) for d in turn_dates}
+    f = friday_of_week(max(turn_dates))
+    out: list[date] = []
+    for _ in range(max_weeks):
+        f = f + timedelta(days=7)
+        if f >= today:          # el viernes de esta semana aún no ha pasado
+            break
+        if f not in done_weeks:
+            out.append(f)
+    return out
+
+
+def is_away(away_until: Optional[date], today: date) -> bool:
+    """Está de vacaciones si tiene fecha de vuelta y aún no ha llegado."""
+    return away_until is not None and away_until >= today
 
 
 def compute_standings(members: list[dict[str, Any]],
@@ -47,7 +84,7 @@ def compute_standings(members: list[dict[str, Any]],
             "count": completed_count.get(mid, 0),
             "last_turn": last_completed.get(mid),
             "created_at": m["created_at"],
-            "on_vacation": bool(m.get("on_vacation", False)),
+            "away_until": m.get("away_until"),
         })
     return standings
 

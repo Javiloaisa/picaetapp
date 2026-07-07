@@ -7,8 +7,10 @@ create table if not exists members (
   id              uuid primary key default gen_random_uuid(),
   name            text not null,
   active          boolean default true,
-  -- De vacaciones: sigue en el equipo pero no se le asignan turnos.
-  on_vacation     boolean not null default false,
+  -- Vacaciones con FECHA DE VUELTA: mientras away_until >= hoy, no se le
+  -- asignan turnos; al pasar esa fecha vuelve solo (no hay que acordarse).
+  -- NULL = disponible.
+  away_until      date,
   -- Autenticación por PIN. pin_hash NULL = cuenta sin reclamar (aún sin PIN).
   pin_hash        text,
   failed_attempts int not null default 0,      -- intentos de PIN fallidos seguidos
@@ -42,7 +44,10 @@ create index if not exists turns_completado_idx
 create table if not exists current_state (
   id                  int primary key default 1,
   assigned_member_id  uuid references members(id),
-  declined_this_round uuid[] default '{}'
+  declined_this_round uuid[] default '{}',
+  -- Para no enviar dos veces el aviso semanal a la misma persona/semana.
+  last_notified_member uuid references members(id),
+  last_notified_friday date
 );
 
 -- Fila única de estado. Siempre id = 1.
@@ -50,14 +55,49 @@ insert into current_state (id) values (1)
   on conflict (id) do nothing;
 
 -- ------------------------------------------------------------------ --
--- Semilla del equipo (NECESARIA para arrancar): pon aquí los nombres.
+-- Semilla real del equipo de la Picaeta (12 personas).
 -- Cada persona reclamará su cuenta poniendo su PIN la primera vez que entre.
--- (Con login por PIN, añadir gente nueva desde la app requiere estar dentro,
---  así que el primer roster se siembra aquí.)
+--
+-- Se siembra el histórico reciente: las picaetas ya COMPLETADAS de cada quien
+-- (columnas E y F del Excel de Teresa, solo fechas pasadas) como turnos
+-- 'completado'. Con esto, al arrancar, la app calcula sola el reparto justo:
+-- el siguiente en comprar sale JUAN I (el que lleva más tiempo sin comprar) y
+-- detrás JORDI.
+--
+-- OJO: la fecha 10/07/2026 de Juan I NO se siembra: es su turno de ESTE
+-- viernes (aún no comprada). La marcará él en la app con "Ja l'he portada".
+-- Juanvi queda FUERA a propósito (ya no participa).
+-- Corre SOLO con la BD vacía (primer arranque de Postgres).
 -- ------------------------------------------------------------------ --
--- insert into members (name) values
---   ('Javi'), ('Marta'), ('Luis'), ('Ana'),
---   ('Pablo'), ('Sara'), ('Nico');
+with nuevos as (
+  insert into members (name) values
+    ('Marta'), ('Teresa'), ('Jordi'), ('Santi'), ('JM'), ('MC'),
+    ('JP'), ('Amparo'), ('Aaron'), ('Juan I'), ('Bernardino'), ('Demetrio')
+  returning id, name
+)
+insert into turns (member_id, date, status)
+select n.id, v.dia, 'completado'
+from nuevos n
+join (values
+  ('Marta',      date '2026-02-06'),  -- E
+  ('Marta',      date '2026-04-17'),  -- F
+  ('Teresa',     date '2026-02-27'),
+  ('Teresa',     date '2026-05-29'),
+  ('Jordi',      date '2026-04-10'),  -- 2º en la cola (después de Juan I)
+  ('Santi',      date '2026-06-19'),
+  ('JM',         date '2026-03-13'),
+  ('JM',         date '2026-06-12'),
+  ('MC',         date '2026-05-15'),
+  ('JP',         date '2026-06-26'),
+  ('Amparo',     date '2026-02-20'),
+  ('Amparo',     date '2026-07-03'),
+  ('Aaron',      date '2026-06-05'),
+  ('Juan I',     date '2026-03-20'),  -- última COMPLETADA -> le toca ESTA semana
+  -- ('Juan I',  date '2026-07-10'),  -- ESTE viernes, aún pendiente: NO se siembra
+  ('Bernardino', date '2026-03-06'),
+  ('Bernardino', date '2026-05-08'),
+  ('Demetrio',   date '2026-04-24')
+) as v(nom, dia) on v.nom = n.name;
 
 -- ------------------------------------------------------------------ --
 -- Migración si ya habías creado la tabla members sin las columnas nuevas:
@@ -65,4 +105,10 @@ insert into current_state (id) values (1)
 -- alter table members add column if not exists pin_hash text;
 -- alter table members add column if not exists failed_attempts int not null default 0;
 -- alter table members add column if not exists locked_until timestamptz;
--- alter table members add column if not exists on_vacation boolean not null default false;
+-- alter table members add column if not exists away_until date;
+-- Si venías del boolean on_vacation:
+--   alter table members add column if not exists away_until date;
+--   update members set away_until = date '2999-01-01' where on_vacation = true;
+--   alter table members drop column if exists on_vacation;
+-- alter table current_state add column if not exists last_notified_member uuid references members(id);
+-- alter table current_state add column if not exists last_notified_friday date;

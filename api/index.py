@@ -4,9 +4,12 @@ En Hetzner corre como proceso permanente (uvicorn) detrás del reverse proxy
 compartido (Caddy). Las rutas llevan el prefijo `/api`.
 """
 
+import threading
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
+from zoneinfo import ZoneInfo
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -14,7 +17,23 @@ from pydantic import BaseModel, Field
 import auth
 import push
 from db import get_conn
-from logic import compute_standings, order_queue, pick_assigned
+from logic import (
+    compute_standings,
+    friday_of_week,
+    is_away,
+    missing_fridays,
+    order_queue,
+    pick_assigned,
+)
+
+# La picaeta es en viernes: todo el cálculo de días va en hora de España, sin
+# depender de la zona del contenedor (el paquete tzdata trae los datos).
+TZ = ZoneInfo("Europe/Madrid")
+
+
+def _today() -> date:
+    return datetime.now(TZ).date()
+
 
 app = FastAPI(title="Picaeta del Divendres")
 
@@ -48,8 +67,9 @@ class TargetIn(BaseModel):
     member_id: str
 
 
-class VacationIn(BaseModel):
-    on: bool
+class AwayIn(BaseModel):
+    # Fecha de vuelta (ISO 'YYYY-MM-DD') o null para volver a estar disponible.
+    until: Optional[str] = None
 
 
 class SubscribeIn(BaseModel):
@@ -67,43 +87,129 @@ def _iso(d: Optional[date]) -> Optional[str]:
     return d.isoformat() if d else None
 
 
-def _load_state(conn):
-    """Recalcula el asignado (excluyendo vacaciones), lo cachea y devuelve todo."""
+def _standings_and_declined(conn, today: date):
+    """Lee miembros activos, turnos y ronda; calcula standings y asignables."""
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT id, name, active, created_at, on_vacation FROM members "
+            "SELECT id, name, active, created_at, away_until FROM members "
             "WHERE active = true ORDER BY created_at"
         )
         members = cur.fetchall()
-
         cur.execute(
-            "SELECT member_id, date, status FROM turns "
-            "WHERE status = 'completado'"
+            "SELECT member_id, date, status FROM turns WHERE status = 'completado'"
         )
         completed = cur.fetchall()
+        cur.execute("SELECT declined_this_round FROM current_state WHERE id = 1")
+        row = cur.fetchone()
+    declined = [str(x) for x in ((row and row["declined_this_round"]) or [])]
+    standings = compute_standings(members, completed)
+    # Quien esté de vacaciones (away_until >= hoy) no entra en el reparto.
+    assignable = [s for s in standings if not is_away(s["away_until"], today)]
+    return standings, assignable, declined
 
+
+def _catch_up(conn, today: date) -> None:
+    """Da por hecho cada viernes vencido: apunta el turno de quien tocara.
+
+    'Si pasa el viernes, se da por hecho que la ha portado.' Nadie tiene que
+    marcar nada: al cargar el estado (o desde la tarea semanal) se rellenan los
+    viernes pasados sin picaeta con el asignado de ese momento y se avanza.
+    """
+    with conn.cursor() as cur:
+        cur.execute("SELECT date FROM turns WHERE status = 'completado'")
+        dates = [r["date"] for r in cur.fetchall()]
+    for friday in missing_fridays(dates, today):
+        _, assignable, declined = _standings_and_declined(conn, today)
+        assigned_id, _ = pick_assigned(assignable, declined)
+        if not assigned_id:
+            continue  # nadie disponible esa semana: se salta, sin cobrar a nadie
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO turns (member_id, date, status) "
+                "VALUES (%s, %s, 'completado')",
+                (assigned_id, friday),
+            )
+            cur.execute(
+                "UPDATE current_state SET declined_this_round = '{}' WHERE id = 1"
+            )
+
+
+def _notify_assigned(conn, today: date) -> None:
+    """Avisa por push al que le toca esta semana (una vez por persona/semana)."""
+    if not push.configured():
+        return
+    _catch_up(conn, today)
+    _, assignable, declined = _standings_and_declined(conn, today)
+    assigned_id, _ = pick_assigned(assignable, declined)
+    if not assigned_id:
+        return
+
+    friday = friday_of_week(today)
+    if friday < today:                       # el de esta semana ya pasó
+        friday = friday + timedelta(days=7)   # apunta al próximo viernes
+
+    with conn.cursor() as cur:
         cur.execute(
-            "SELECT assigned_member_id, declined_this_round "
-            "FROM current_state WHERE id = 1"
+            "SELECT last_notified_member, last_notified_friday "
+            "FROM current_state WHERE id = 1 FOR UPDATE"
         )
-        state_row = cur.fetchone() or {
-            "assigned_member_id": None,
-            "declined_this_round": [],
-        }
-        declined = [str(x) for x in (state_row["declined_this_round"] or [])]
+        st = cur.fetchone() or {}
+    if (st.get("last_notified_friday") == friday
+            and str(st.get("last_notified_member") or "") == assigned_id):
+        return  # ya avisado a esta persona para esta semana
 
-        standings = compute_standings(members, completed)
-        # Quien esté de vacaciones no entra en el reparto (ni asignado ni cola).
-        assignable = [s for s in standings if not s["on_vacation"]]
-        assigned_id, declined = pick_assigned(assignable, declined)
-        queue = order_queue(assignable, declined)
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT endpoint, p256dh, auth FROM push_subscriptions "
+            "WHERE member_id = %s",
+            (assigned_id,),
+        )
+        subs = cur.fetchall()
 
+    if not subs:
+        # Aún no tiene notificaciones activadas: no lo marcamos como avisado,
+        # así recibirá el push en cuanto suscriba un dispositivo.
+        return
+
+    dead: list[str] = []
+    for s in subs:
+        _, code = push.send(
+            {"endpoint": s["endpoint"],
+             "keys": {"p256dh": s["p256dh"], "auth": s["auth"]}},
+            "Et toca la picaeta! 🫒",
+            "Esta setmana la portes tu. Si no pots o estàs de vacances, dis-ho ací.",
+            "/",
+            kind="turn",
+        )
+        if code in (404, 410):
+            dead.append(s["endpoint"])
+
+    with conn.cursor() as cur:
+        for endpoint in dead:
+            cur.execute(
+                "DELETE FROM push_subscriptions WHERE endpoint = %s", (endpoint,)
+            )
+        cur.execute(
+            "UPDATE current_state SET last_notified_member = %s, "
+            "last_notified_friday = %s WHERE id = 1",
+            (assigned_id, friday),
+        )
+
+
+def _load_state(conn):
+    """Pone al día los viernes vencidos, recalcula el asignado y devuelve todo."""
+    today = _today()
+    _catch_up(conn, today)
+    standings, assignable, declined = _standings_and_declined(conn, today)
+    assigned_id, declined = pick_assigned(assignable, declined)
+    queue = order_queue(assignable, declined)
+
+    with conn.cursor() as cur:
         cur.execute(
             "UPDATE current_state SET assigned_member_id = %s, "
             "declined_this_round = %s WHERE id = 1",
             (assigned_id, declined),
         )
-
         cur.execute(
             "SELECT t.id, t.date, m.id AS member_id, m.name "
             "FROM turns t JOIN members m ON m.id = t.member_id "
@@ -121,7 +227,7 @@ def _load_state(conn):
             "name": e["name"],
             "count": e["count"],
             "last_turn": _iso(e["last_turn"]),
-            "on_vacation": e["on_vacation"],
+            "away_until": _iso(e["away_until"]),
         }
 
     return {
@@ -152,7 +258,7 @@ def whoami(request: Request):
         return {"member": None}
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT id, name, on_vacation FROM members "
+            "SELECT id, name, away_until FROM members "
             "WHERE id = %s AND active = true",
             (mid,),
         )
@@ -160,7 +266,7 @@ def whoami(request: Request):
     if not m:
         return {"member": None}
     return {"member": {"id": str(m["id"]), "name": m["name"],
-                       "on_vacation": m["on_vacation"]}}
+                       "away_until": _iso(m["away_until"])}}
 
 
 @app.post("/api/auth/set-pin")
@@ -307,43 +413,36 @@ def deactivate_member(member_id: str, _actor: str = Depends(auth.require_login))
         return _load_state(conn)
 
 
-@app.post("/api/members/vacation")
-def set_vacation(body: VacationIn, actor: str = Depends(auth.require_login)):
-    """El usuario activa/desactiva su propio modo vacaciones."""
+@app.post("/api/members/away")
+def set_away(body: AwayIn, actor: str = Depends(auth.require_login)):
+    """Marca hasta cuándo estás de vacaciones (o null para volver ya).
+
+    Con fecha de vuelta no hace falta acordarse de "volver": al pasar esa
+    fecha, el reparto justo te tiene en cuenta otra vez de forma automática.
+    """
+    until: Optional[date] = None
+    if body.until:
+        try:
+            until = date.fromisoformat(body.until)
+        except ValueError:
+            raise HTTPException(400, "Data de tornada no vàlida.")
+        if until < _today():
+            raise HTTPException(400, "La data de tornada ha de ser futura.")
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE members SET on_vacation = %s WHERE id = %s",
-                (body.on, actor),
+                "UPDATE members SET away_until = %s WHERE id = %s",
+                (until, actor),
             )
         return _load_state(conn)
 
 
 # --------------------------------------------------------------------------- #
 # Acciones sobre el turno (el actor sale de la sesión, no del cliente)
+#
+# Ya NO hay "ja l'he portada": si pasa el viernes, se da por hecho que la ha
+# comprado el asignado (lo registra _catch_up). Solo queda declinar la semana.
 # --------------------------------------------------------------------------- #
-@app.post("/api/turns/complete")
-def complete_turn(actor: str = Depends(auth.require_login)):
-    with get_conn() as conn:
-        state = _load_state(conn)
-        assigned = state["assigned"]
-        if not assigned or assigned["id"] != actor:
-            raise HTTPException(
-                409,
-                "Eixe torn ja no és teu. Refresca per a vore a qui li toca.",
-            )
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO turns (member_id, date, status) "
-                "VALUES (%s, %s, 'completado')",
-                (actor, date.today()),
-            )
-            cur.execute(
-                "UPDATE current_state SET declined_this_round = '{}' WHERE id = 1"
-            )
-        return _load_state(conn)
-
-
 @app.post("/api/turns/decline")
 def decline_turn(actor: str = Depends(auth.require_login)):
     with get_conn() as conn:
@@ -362,6 +461,8 @@ def decline_turn(actor: str = Depends(auth.require_login)):
                 "WHERE id = 1 AND NOT (%s::uuid = ANY(declined_this_round))",
                 (actor, actor),
             )
+        # Le toca a otro: avísale por push (si tiene notificaciones).
+        _notify_assigned(conn, _today())
         return _load_state(conn)
 
 
@@ -437,6 +538,7 @@ def push_remind(body: TargetIn, actor: str = Depends(auth.require_login)):
             "Et toca la picaeta! 🫒",
             f"{who} et recorda que este divendres la portes tu.",
             "/",
+            kind="turn",
         )
         if ok:
             sent += 1
@@ -452,3 +554,40 @@ def push_remind(body: TargetIn, actor: str = Depends(auth.require_login)):
                 )
 
     return {"sent": sent, "has_subscription": len(subs) > 0}
+
+
+# --------------------------------------------------------------------------- #
+# Tarea semanal: avisar sola a quien le toca (así nadie tiene que acordarse)
+#
+# Corre en el propio proceso de la API (por eso el Dockerfile usa 1 worker).
+# El envío es idempotente: no repite el aviso a la misma persona/semana.
+# --------------------------------------------------------------------------- #
+# APScheduler 3.x solo admite timezones de pytz: se pasa como cadena (la
+# resuelve él). El cálculo de días de la app va aparte, con ZoneInfo (_today).
+scheduler = BackgroundScheduler(timezone="Europe/Madrid")
+
+
+def _weekly_notify_job() -> None:
+    try:
+        with get_conn() as conn:
+            _notify_assigned(conn, _today())
+    except Exception:
+        # Un fallo de red/push no debe tumbar el planificador.
+        pass
+
+
+@app.on_event("startup")
+def _start_scheduler() -> None:
+    # Lunes por la mañana: pone al día el viernes pasado y avisa al de esta semana.
+    scheduler.add_job(
+        _weekly_notify_job, "cron", day_of_week="mon", hour=9, minute=0,
+        id="weekly_notify", replace_existing=True,
+    )
+    scheduler.start()
+    # Y un aviso al arrancar (por si se despliega a mitad de semana); idempotente.
+    threading.Timer(15, _weekly_notify_job).start()
+
+
+@app.on_event("shutdown")
+def _stop_scheduler() -> None:
+    scheduler.shutdown(wait=False)

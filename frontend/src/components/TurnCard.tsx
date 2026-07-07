@@ -6,9 +6,9 @@ interface Props {
   isMe: boolean;
   busy: boolean;
   reminding: boolean;
-  onComplete: () => void;
   onDecline: () => void;
   onRemind: () => void;
+  onGoVacation: () => void;
 }
 
 export function TurnCard({
@@ -16,9 +16,9 @@ export function TurnCard({
   isMe,
   busy,
   reminding,
-  onComplete,
   onDecline,
   onRemind,
+  onGoVacation,
 }: Props) {
   if (!assigned) {
     return (
@@ -49,20 +49,23 @@ export function TurnCard({
       </div>
 
       {isMe ? (
-        <div className="grid grid-cols-1 gap-3 mt-6">
-          <button
-            onClick={onComplete}
-            disabled={busy}
-            className="tap font-display text-lg font-bold text-navy-900 bg-mustard hover:bg-mustard-soft disabled:opacity-50 rounded-2xl px-5 py-4"
-          >
-            ✓ Ja l'he portada
-          </button>
+        <div className="mt-6 space-y-3">
+          <p className="text-cream/70 text-sm">
+            Esta setmana la portes tu. No cal marcar res: en passar el divendres
+            es dona per feta. 🫒
+          </p>
           <button
             onClick={onDecline}
             disabled={busy}
-            className="tap font-display font-semibold text-cream bg-white/5 hover:bg-white/10 disabled:opacity-50 rounded-2xl px-5 py-3 ring-1 ring-white/10"
+            className="tap w-full font-display font-semibold text-cream bg-white/5 hover:bg-white/10 disabled:opacity-50 rounded-2xl px-5 py-3 ring-1 ring-white/10"
           >
             Esta setmana no puc 🙈
+          </button>
+          <button
+            onClick={onGoVacation}
+            className="tap w-full text-cream/60 hover:text-cream text-sm py-1"
+          >
+            🏖️ Me'n vaig uns dies (vacances)
           </button>
         </div>
       ) : (

@@ -13,10 +13,11 @@ import { QueueList } from "./components/QueueList";
 import { FairnessBars } from "./components/FairnessBars";
 import { History } from "./components/History";
 import { MembersManager } from "./components/MembersManager";
+import { formatDate } from "./lib";
 
 const POLL_MS = 6000;
 
-type Session = { id: string; name: string; on_vacation: boolean } | null;
+type Session = { id: string; name: string; away_until: string | null } | null;
 type PushState = "on" | "off" | "unsupported" | "unknown";
 type Notice = { text: string; wa?: string } | null;
 
@@ -30,6 +31,7 @@ export default function App() {
   const [reminding, setReminding] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [pushState, setPushState] = useState<PushState>("unknown");
+  const [awayDate, setAwayDate] = useState("");
   const timer = useRef<number | null>(null);
 
   const checkSession = useCallback(async () => {
@@ -46,6 +48,15 @@ export default function App() {
   useEffect(() => {
     checkSession();
   }, [checkSession]);
+
+  // Enlace desde la notificación "🏖️ De vacances": abre los ajustes.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("vacation") === "1") {
+      setShowSettings(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -136,9 +147,10 @@ export default function App() {
     }
   }
 
-  async function toggleVacation(on: boolean) {
-    await act(() => api.setVacation(on));
-    setMe((m) => (m ? { ...m, on_vacation: on } : m));
+  async function setAway(until: string | null) {
+    await act(() => api.setAway(until));
+    setMe((m) => (m ? { ...m, away_until: until } : m));
+    setAwayDate("");
   }
 
   async function toggleNotifications() {
@@ -177,7 +189,9 @@ export default function App() {
 
   const meId = me.id;
   const meStanding = state?.members.find((m) => m.id === meId);
-  const onVacation = meStanding?.on_vacation ?? me.on_vacation;
+  const todayIso = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local
+  const awayUntil = meStanding?.away_until ?? me.away_until ?? null;
+  const onVacation = !!awayUntil && awayUntil >= todayIso;
   const isAssigned = !!state?.assigned && state.assigned.id === meId;
 
   return (
@@ -221,29 +235,47 @@ export default function App() {
 
       {showSettings ? (
         <div className="space-y-6">
-          {/* Vacances */}
+          {/* Vacances: amb data de tornada, tornes sol (no cal recordar-ho). */}
           <section className="rounded-2xl bg-white/[0.04] p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-display font-semibold text-cream">Vacances</p>
-                <p className="text-cream/50 text-sm">
-                  {onVacation
-                    ? "No et toca cap picaeta fins que tornes."
-                    : "Actíva-ho i no t'assignaran cap picaeta."}
+            <p className="font-display font-semibold text-cream">Vacances</p>
+            {onVacation ? (
+              <>
+                <p className="text-cream/50 text-sm mt-1">
+                  Estàs fora fins al <b>{formatDate(awayUntil)}</b>. No t'assignaran
+                  cap picaeta; tornaràs sol eixe dia.
                 </p>
-              </div>
-              <button
-                onClick={() => toggleVacation(!onVacation)}
-                disabled={busy}
-                className={`tap shrink-0 font-display font-semibold rounded-2xl px-4 py-2 disabled:opacity-50 ${
-                  onVacation
-                    ? "text-navy-900 bg-mustard hover:bg-mustard-soft"
-                    : "text-cream bg-white/10 hover:bg-white/15"
-                }`}
-              >
-                {onVacation ? "He tornat" : "Estic de vacances 🏖️"}
-              </button>
-            </div>
+                <button
+                  onClick={() => setAway(null)}
+                  disabled={busy}
+                  className="tap mt-3 font-display font-semibold rounded-2xl px-4 py-2 text-navy-900 bg-mustard hover:bg-mustard-soft disabled:opacity-50"
+                >
+                  Ja he tornat
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-cream/50 text-sm mt-1">
+                  Te'n vas uns dies? Posa la data de tornada i no t'assignaran cap
+                  picaeta fins llavors. No cal recordar tornar.
+                </p>
+                <div className="flex gap-2 mt-3">
+                  <input
+                    type="date"
+                    value={awayDate}
+                    min={todayIso}
+                    onChange={(e) => setAwayDate(e.target.value)}
+                    className="flex-1 min-w-0 rounded-2xl bg-white/[0.06] px-4 py-2 text-cream outline-none focus:ring-2 focus:ring-mustard/60"
+                  />
+                  <button
+                    onClick={() => awayDate && setAway(awayDate)}
+                    disabled={busy || !awayDate}
+                    className="tap shrink-0 font-display font-semibold rounded-2xl px-4 py-2 text-navy-900 bg-mustard hover:bg-mustard-soft disabled:opacity-40"
+                  >
+                    Estic de vacances 🏖️
+                  </button>
+                </div>
+              </>
+            )}
           </section>
 
           {/* Notificacions */}
@@ -309,9 +341,9 @@ export default function App() {
                 isMe={isAssigned}
                 busy={busy}
                 reminding={reminding}
-                onComplete={() => act(() => api.complete())}
                 onDecline={() => act(() => api.decline())}
                 onRemind={remind}
+                onGoVacation={() => setShowSettings(true)}
               />
               <QueueList
                 queue={state.queue}
