@@ -92,7 +92,7 @@ export function AttendanceList({
                         : "bg-navy-900/[0.06] text-ink/50 hover:text-ink"
                     }`}
                   >
-                    No vinc
+                    No vaig
                   </button>
                 </div>
               ) : (
