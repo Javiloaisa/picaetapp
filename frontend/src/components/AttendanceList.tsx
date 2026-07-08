@@ -46,7 +46,7 @@ export function AttendanceList({
       <p className="text-ink/50 text-sm mb-3">
         <span className="text-ink font-semibold">{yes}</span> venen ·{" "}
         <span className="text-ink font-semibold">{no}</span> no
-        {pending > 0 && <> · {pending} sense dir</>}
+        {pending > 0 && <> · {pending} sense contestar</>}
       </p>
 
       <ul className="space-y-2">
@@ -80,7 +80,7 @@ export function AttendanceList({
                         : "bg-navy-900/[0.06] text-ink/50 hover:text-ink"
                     }`}
                   >
-                    Vinc
+                    Vaig
                   </button>
                   <button
                     onClick={() => onSetMine(false)}
@@ -92,7 +92,7 @@ export function AttendanceList({
                         : "bg-navy-900/[0.06] text-ink/50 hover:text-ink"
                     }`}
                   >
-                    No
+                    No vinc
                   </button>
                 </div>
               ) : (
