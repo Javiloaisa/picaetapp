@@ -1,4 +1,5 @@
 import type { MemberStanding } from "../types";
+import { formatDate } from "../lib";
 
 interface Props {
   queue: MemberStanding[];
@@ -14,7 +15,7 @@ export function QueueList({ queue, declined, meId }: Props) {
   return (
     <section>
       <h3 className="font-display font-semibold text-ink/80 mb-3">
-        I després van…
+        Següents picaetes
       </h3>
       <ol className="space-y-2">
         {rest.map((m, i) => {
@@ -27,16 +28,21 @@ export function QueueList({ queue, declined, meId }: Props) {
               <span className="font-display font-bold text-ink/40 w-6 text-center">
                 {i + 2}
               </span>
-              <span className="flex-1 text-ink">
+              <span className="flex-1 min-w-0 text-ink">
                 {m.name}
                 {m.id === meId && (
                   <span className="text-mustard text-xs ml-2">(tu)</span>
                 )}
+                {hasDeclined && (
+                  <span className="block text-xs text-coral/80">
+                    esta setmana no
+                  </span>
+                )}
               </span>
-              {hasDeclined ? (
-                <span className="text-xs text-coral/80">esta setmana no</span>
-              ) : (
-                <span className="text-xs text-ink/40">{m.count} enguany</span>
+              {m.next_date && (
+                <span className="shrink-0 text-sm font-semibold text-ink/60 tabular-nums">
+                  {formatDate(m.next_date)}
+                </span>
               )}
             </li>
           );

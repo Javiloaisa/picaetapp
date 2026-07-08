@@ -4,6 +4,7 @@ export interface MemberStanding {
   count: number;
   last_turn: string | null; // ISO date o null si nunca compró
   away_until: string | null; // ISO date de vuelta de vacaciones, o null
+  next_date?: string | null; // ISO date en que le tocaría (solo en la cola)
 }
 
 export interface HistoryEntry {

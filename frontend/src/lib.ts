@@ -1,30 +1,30 @@
-// Utilidades pequeñas de formato de fechas. La identidad ya no vive aquí:
-// la sesión la lleva la cookie HttpOnly (ver api.ts / auth.py).
+// Utilitats xicotetes de format de dates (en valencià). La identitat ja no viu
+// ací: la sessió la porta la cookie HttpOnly (veure api.ts / auth.py).
 
 const MONTHS = [
-  "ene", "feb", "mar", "abr", "may", "jun",
-  "jul", "ago", "sep", "oct", "nov", "dic",
+  "gen", "febr", "març", "abr", "maig", "juny",
+  "jul", "ag", "set", "oct", "nov", "des",
 ];
 
 export function formatDate(iso: string | null): string {
-  if (!iso) return "nunca";
+  if (!iso) return "mai";
   const [y, m, d] = iso.split("-").map(Number);
   return `${d} ${MONTHS[m - 1]} ${y}`;
 }
 
 export function relativeDays(iso: string | null): string {
-  if (!iso) return "aún no ha comprado";
+  if (!iso) return "encara no ha comprat";
   const then = new Date(iso + "T00:00:00");
   const now = new Date();
   const days = Math.round(
     (now.getTime() - then.getTime()) / (1000 * 60 * 60 * 24)
   );
-  if (days <= 0) return "hoy";
-  if (days === 1) return "hace 1 día";
-  if (days < 7) return `hace ${days} días`;
+  if (days <= 0) return "hui";
+  if (days === 1) return "fa 1 dia";
+  if (days < 7) return `fa ${days} dies`;
   const weeks = Math.round(days / 7);
-  if (weeks === 1) return "hace 1 semana";
-  if (weeks < 5) return `hace ${weeks} semanas`;
+  if (weeks === 1) return "fa 1 setmana";
+  if (weeks < 5) return `fa ${weeks} setmanes`;
   const months = Math.round(days / 30);
-  return months === 1 ? "hace 1 mes" : `hace ${months} meses`;
+  return months === 1 ? "fa 1 mes" : `fa ${months} mesos`;
 }

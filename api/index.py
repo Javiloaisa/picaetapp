@@ -24,6 +24,7 @@ from logic import (
     missing_fridays,
     order_queue,
     pick_assigned,
+    upcoming_picaeta_fridays,
 )
 
 # La picaeta es en viernes: todo el cálculo de días va en hora de España, sin
@@ -247,9 +248,17 @@ def _load_state(conn):
             "away_until": _iso(e["away_until"]),
         }
 
+    # Data en què li tocaria a cadascú de la cua (saltant festius).
+    queue_days = upcoming_picaeta_fridays(today, len(queue))
+
+    def serialize_queued(e, day):
+        m = serialize_member(e)
+        m["next_date"] = _iso(day)
+        return m
+
     return {
         "assigned": serialize_member(assigned) if assigned else None,
-        "queue": [serialize_member(e) for e in queue],
+        "queue": [serialize_queued(e, d) for e, d in zip(queue, queue_days)],
         "members": [serialize_member(e) for e in sorted(
             standings, key=lambda x: (-x["count"], x["name"].lower()))],
         "declined_this_round": declined,
