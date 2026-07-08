@@ -9,6 +9,7 @@ interface Props {
   onDecline: () => void;
   onRemind: () => void;
   onGoVacation: () => void;
+  onNotHere: () => void;
 }
 
 export function TurnCard({
@@ -19,6 +20,7 @@ export function TurnCard({
   onDecline,
   onRemind,
   onGoVacation,
+  onNotHere,
 }: Props) {
   if (!assigned) {
     return (
@@ -69,13 +71,20 @@ export function TurnCard({
           </button>
         </div>
       ) : (
-        <div className="mt-6">
+        <div className="mt-6 space-y-3">
           <button
             onClick={onRemind}
             disabled={reminding}
             className="tap inline-flex items-center gap-2 font-display font-semibold text-navy-900 bg-coral hover:bg-coral-soft disabled:opacity-60 rounded-2xl px-5 py-3"
           >
             {reminding ? "Avisant…" : `📣 Recordar-li-ho a ${assigned.name}`}
+          </button>
+          <button
+            onClick={onNotHere}
+            disabled={busy}
+            className="tap block w-full text-ink/60 hover:text-ink text-sm py-1 disabled:opacity-50"
+          >
+            🙈 {assigned.name} no està — passa el torn
           </button>
         </div>
       )}

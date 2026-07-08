@@ -27,6 +27,16 @@ def friday_of_week(d: date) -> date:
     return d + timedelta(days=(4 - d.weekday()))
 
 
+def current_friday(today: date) -> date:
+    """El divendres de referència per a l'assistència d'esta setmana.
+
+    Si el de la setmana ja va passar (cap de setmana), apunta al pròxim, que és
+    el que la gent vol confirmar.
+    """
+    f = friday_of_week(today)
+    return f if f >= today else f + timedelta(days=7)
+
+
 def missing_fridays(turn_dates: list[date], today: date,
                     max_weeks: int = 520) -> list[date]:
     """Viernes ya pasados (anteriores a hoy) sin picaeta registrada.

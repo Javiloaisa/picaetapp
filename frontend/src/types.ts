@@ -13,11 +13,18 @@ export interface HistoryEntry {
   name: string;
 }
 
+export interface Attendance {
+  member_id: string;
+  coming: boolean;
+}
+
 export interface AppState {
   assigned: MemberStanding | null;
   queue: MemberStanding[];
   members: MemberStanding[];
   declined_this_round: string[];
+  friday: string; // ISO date del divendres d'esta setmana
+  attendance: Attendance[]; // respostes Vinc / No vinc d'eixe divendres
   history: HistoryEntry[];
 }
 

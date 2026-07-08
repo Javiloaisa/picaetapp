@@ -41,6 +41,18 @@ create table if not exists turns (
 create index if not exists turns_completado_idx
   on turns (member_id) where status = 'completado';
 
+-- Assistència a la picaeta d'un divendres concret: cada u diu si eixe dia ve
+-- o no (Vinc / No vinc). És NOMÉS informatiu (compta caps), no canvia qui
+-- compra. Una fila per persona i divendres; en canviar de setmana, el divendres
+-- nou no té files fins que la gent respon (es "reinicia" sol).
+create table if not exists attendance (
+  member_id  uuid references members(id) on delete cascade,
+  friday     date not null,
+  coming     boolean not null,
+  updated_at timestamptz default now(),
+  primary key (member_id, friday)
+);
+
 create table if not exists current_state (
   id                  int primary key default 1,
   assigned_member_id  uuid references members(id),
@@ -112,3 +124,9 @@ join (values
 --   alter table members drop column if exists on_vacation;
 -- alter table current_state add column if not exists last_notified_member uuid references members(id);
 -- alter table current_state add column if not exists last_notified_friday date;
+-- Assistència (la API també la crea sola a l'arrancar, així que en producció no
+-- cal fer res a mà; açò és només per si vols aplicar-la per psql):
+-- create table if not exists attendance (
+--   member_id uuid references members(id) on delete cascade,
+--   friday date not null, coming boolean not null,
+--   updated_at timestamptz default now(), primary key (member_id, friday));

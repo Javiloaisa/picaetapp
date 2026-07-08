@@ -19,7 +19,7 @@ import push
 from db import get_conn
 from logic import (
     compute_standings,
-    friday_of_week,
+    current_friday,
     is_away,
     missing_fridays,
     order_queue,
@@ -70,6 +70,20 @@ class TargetIn(BaseModel):
 class AwayIn(BaseModel):
     # Fecha de vuelta (ISO 'YYYY-MM-DD') o null para volver a estar disponible.
     until: Optional[str] = None
+    # A quién se le pone (por si marcas a un compañero). None = uno mismo.
+    member_id: Optional[str] = None
+
+
+class DeclineIn(BaseModel):
+    # A quién se le pasa el turno. None = uno mismo ("esta setmana no puc").
+    # Con member_id marcas que el asignado "no està" (p. ej. no entra en la app).
+    member_id: Optional[str] = None
+
+
+class AttendanceIn(BaseModel):
+    coming: bool
+    # De quién es la respuesta. None = uno mismo.
+    member_id: Optional[str] = None
 
 
 class SubscribeIn(BaseModel):
@@ -144,9 +158,7 @@ def _notify_assigned(conn, today: date) -> None:
     if not assigned_id:
         return
 
-    friday = friday_of_week(today)
-    if friday < today:                       # el de esta semana ya pasó
-        friday = friday + timedelta(days=7)   # apunta al próximo viernes
+    friday = current_friday(today)
 
     with conn.cursor() as cur:
         cur.execute(
@@ -204,6 +216,7 @@ def _load_state(conn):
     assigned_id, declined = pick_assigned(assignable, declined)
     queue = order_queue(assignable, declined)
 
+    friday = current_friday(today)
     with conn.cursor() as cur:
         cur.execute(
             "UPDATE current_state SET assigned_member_id = %s, "
@@ -217,6 +230,11 @@ def _load_state(conn):
             "ORDER BY t.date DESC, t.created_at DESC LIMIT 15"
         )
         history = cur.fetchall()
+        cur.execute(
+            "SELECT member_id, coming FROM attendance WHERE friday = %s",
+            (friday,),
+        )
+        attendance = cur.fetchall()
 
     by_id = {e["id"]: e for e in standings}
     assigned = by_id.get(assigned_id) if assigned_id else None
@@ -236,6 +254,11 @@ def _load_state(conn):
         "members": [serialize_member(e) for e in sorted(
             standings, key=lambda x: (-x["count"], x["name"].lower()))],
         "declined_this_round": declined,
+        "friday": _iso(friday),
+        "attendance": [
+            {"member_id": str(a["member_id"]), "coming": a["coming"]}
+            for a in attendance
+        ],
         "history": [
             {
                 "id": str(h["id"]),
@@ -415,11 +438,14 @@ def deactivate_member(member_id: str, _actor: str = Depends(auth.require_login))
 
 @app.post("/api/members/away")
 def set_away(body: AwayIn, actor: str = Depends(auth.require_login)):
-    """Marca hasta cuándo estás de vacaciones (o null para volver ya).
+    """Marca hasta cuándo alguien está de vacaciones (o null para volver ya).
 
+    Por defecto te marcas tú, pero puedes pasar `member_id` para marcar a un
+    compañero (equipo pequeño de confianza; útil si él no entra en la app).
     Con fecha de vuelta no hace falta acordarse de "volver": al pasar esa
-    fecha, el reparto justo te tiene en cuenta otra vez de forma automática.
+    fecha, el reparto justo lo tiene en cuenta otra vez de forma automática.
     """
+    target = body.member_id or actor
     until: Optional[date] = None
     if body.until:
         try:
@@ -431,9 +457,12 @@ def set_away(body: AwayIn, actor: str = Depends(auth.require_login)):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE members SET away_until = %s WHERE id = %s",
-                (until, actor),
+                "UPDATE members SET away_until = %s "
+                "WHERE id = %s AND active = true RETURNING id",
+                (until, target),
             )
+            if cur.fetchone() is None:
+                raise HTTPException(404, "Eixe membre no existix.")
         return _load_state(conn)
 
 
@@ -444,14 +473,22 @@ def set_away(body: AwayIn, actor: str = Depends(auth.require_login)):
 # comprado el asignado (lo registra _catch_up). Solo queda declinar la semana.
 # --------------------------------------------------------------------------- #
 @app.post("/api/turns/decline")
-def decline_turn(actor: str = Depends(auth.require_login)):
+def decline_turn(body: DeclineIn = DeclineIn(),
+                 actor: str = Depends(auth.require_login)):
+    """Pasa el turno de esta semana al siguiente.
+
+    Sin `member_id`: declinas tú ("esta setmana no puc"). Con `member_id`:
+    marcas que el asignado NO ESTÀ (p. ej. no entra en la app). En ambos casos
+    solo se pospone, no cuenta como turno comprado.
+    """
+    target = body.member_id or actor
     with get_conn() as conn:
         state = _load_state(conn)
         assigned = state["assigned"]
-        if not assigned or assigned["id"] != actor:
+        if not assigned or assigned["id"] != target:
             raise HTTPException(
                 409,
-                "Eixe torn ja no és teu. Refresca per a vore a qui li toca.",
+                "Eixe torn ja no és seu. Refresca per a vore a qui li toca.",
             )
         with conn.cursor() as cur:
             cur.execute(
@@ -459,10 +496,37 @@ def decline_turn(actor: str = Depends(auth.require_login)):
                 "SET declined_this_round = "
                 "  array_append(declined_this_round, %s::uuid) "
                 "WHERE id = 1 AND NOT (%s::uuid = ANY(declined_this_round))",
-                (actor, actor),
+                (target, target),
             )
         # Le toca a otro: avísale por push (si tiene notificaciones).
         _notify_assigned(conn, _today())
+        return _load_state(conn)
+
+
+@app.post("/api/attendance")
+def set_attendance(body: AttendanceIn, actor: str = Depends(auth.require_login)):
+    """Confirma si alguien viene a la picaeta de este viernes (Vinc / No vinc).
+
+    Por defecto respondes por ti; con `member_id` respondes por un compañero.
+    Es SOLO informativo (cuenta cabezas): no cambia quién compra.
+    """
+    target = body.member_id or actor
+    friday = current_friday(_today())
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM members WHERE id = %s AND active = true",
+                (target,),
+            )
+            if cur.fetchone() is None:
+                raise HTTPException(404, "Eixe membre no existix.")
+            cur.execute(
+                "INSERT INTO attendance (member_id, friday, coming) "
+                "VALUES (%s, %s, %s) "
+                "ON CONFLICT (member_id, friday) DO UPDATE SET "
+                "  coming = EXCLUDED.coming, updated_at = now()",
+                (target, friday, body.coming),
+            )
         return _load_state(conn)
 
 
@@ -573,6 +637,28 @@ def _weekly_notify_job() -> None:
             _notify_assigned(conn, _today())
     except Exception:
         # Un fallo de red/push no debe tumbar el planificador.
+        pass
+
+
+@app.on_event("startup")
+def _ensure_schema() -> None:
+    """Crea la taula d'assistència si encara no existix (deploys ja engegats).
+
+    schema.sql només corre amb la BD buida, així que en producció fem la DDL
+    ací (idempotent) per a no haver d'entrar a psql després d'un git pull.
+    """
+    try:
+        with get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS attendance ("
+                "  member_id uuid REFERENCES members(id) ON DELETE CASCADE,"
+                "  friday date NOT NULL,"
+                "  coming boolean NOT NULL,"
+                "  updated_at timestamptz DEFAULT now(),"
+                "  PRIMARY KEY (member_id, friday))"
+            )
+    except Exception:
+        # Si la BD encara no està llesta, ja es crearà via schema.sql.
         pass
 
 

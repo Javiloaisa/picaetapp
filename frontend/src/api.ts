@@ -60,15 +60,28 @@ export const api = {
     req<AppState>(`/api/members/${id}`, { method: "DELETE" }),
 
   // Fecha de vuelta de vacaciones (ISO 'YYYY-MM-DD') o null para volver ya.
-  setAway: (until: string | null) =>
+  // member_id opcional: marcar a un compañero (por defecto, uno mismo).
+  setAway: (until: string | null, member_id?: string) =>
     req<AppState>("/api/members/away", {
       method: "POST",
-      body: JSON.stringify({ until }),
+      body: JSON.stringify({ until, member_id }),
     }),
 
   // --- acción sobre el turno (el actor lo pone el servidor por la sesión) ---
   // "Ja l'he portada" ya no existe: al pasar el viernes se da por hecho.
-  decline: () => req<AppState>("/api/turns/decline", { method: "POST" }),
+  // Sin member_id: declinas tú. Con member_id: marcas que el asignado no está.
+  decline: (member_id?: string) =>
+    req<AppState>("/api/turns/decline", {
+      method: "POST",
+      body: JSON.stringify({ member_id }),
+    }),
+
+  // Confirmar asistencia al viernes (propia o de un compañero). Solo informativo.
+  setAttendance: (coming: boolean, member_id?: string) =>
+    req<AppState>("/api/attendance", {
+      method: "POST",
+      body: JSON.stringify({ coming, member_id }),
+    }),
 
   // --- notificaciones push ---
   pushPublicKey: () => req<{ key: string }>("/api/push/public-key"),

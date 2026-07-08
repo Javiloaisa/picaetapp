@@ -9,8 +9,10 @@ compartido en (casi) tiempo real. **Interfaz en valencià.**
 - **Pensado para desplegar en un VPS** (Hetzner) detrás de un reverse proxy con HTTPS.
 
 Funciones clave: reparto justo, **vacaciones** (te apartas del turno mientras
-estás fuera) y **notificaciones push** (al recordar a alguien, le salta un aviso
-en el móvil).
+estás fuera; puedes marcar a un compañero si él no entra en la app),
+**confirmar asistencia** al viernes (Vinc / No vinc, solo informativo),
+**pasar el turno** cuando el asignado no está, y **notificaciones push** (al
+recordar a alguien, le salta un aviso en el móvil).
 
 ---
 
@@ -247,12 +249,13 @@ docker compose exec db pg_dump -U picadita picadita > backup_$(date +%F).sql
 | `GET`    | `/api/members`          |   —    | Miembros activos (para el login; incluye `has_pin`).         |
 | `POST`   | `/api/members`          |   ✔    | Añadir miembro `{name}`.                                     |
 | `DELETE` | `/api/members/{id}`     |   ✔    | Desactivar (soft delete) y recalcular.                       |
-| `POST`   | `/api/members/away`     |   ✔    | Fecha de vuelta de vacaciones `{until}` (ISO) o `null`.      |
+| `POST`   | `/api/members/away`     |   ✔    | Vacaciones: `{until}` (ISO) o `null`. `member_id` opcional para marcar a otro. |
+| `POST`   | `/api/attendance`       |   ✔    | Asistencia al viernes `{coming}` (bool). `member_id` opcional. Solo informativo. |
 | `GET`    | `/api/push/public-key`  |   —    | Clave pública VAPID (para suscribirse).                      |
 | `POST`   | `/api/push/subscribe`   |   ✔    | Guarda tu suscripción push `{subscription}`.                 |
 | `POST`   | `/api/push/unsubscribe` |   ✔    | Borra una suscripción `{endpoint}`.                          |
 | `POST`   | `/api/push/remind`      |   ✔    | Envía push a quien le toca `{member_id}`.                    |
-| `POST`   | `/api/turns/decline`    |   ✔    | "No puedo esta semana" (y avisa por push al siguiente).      |
+| `POST`   | `/api/turns/decline`    |   ✔    | Pasa el turno: sin `member_id` "no puedo"; con él marcas que el asignado "no está". Avisa al siguiente. |
 
 > No hay endpoint de "ya compré": el turno se da por hecho al pasar el viernes.
 

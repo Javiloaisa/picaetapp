@@ -9,6 +9,7 @@ import {
 } from "./push";
 import { LoginScreen } from "./components/LoginScreen";
 import { TurnCard } from "./components/TurnCard";
+import { AttendanceList } from "./components/AttendanceList";
 import { QueueList } from "./components/QueueList";
 import { FairnessBars } from "./components/FairnessBars";
 import { History } from "./components/History";
@@ -344,6 +345,20 @@ export default function App() {
                 onDecline={() => act(() => api.decline())}
                 onRemind={remind}
                 onGoVacation={() => setShowSettings(true)}
+                onNotHere={() =>
+                  state.assigned &&
+                  act(() => api.decline(state.assigned!.id))
+                }
+              />
+              <AttendanceList
+                members={state.members}
+                attendance={state.attendance}
+                meId={meId}
+                friday={state.friday}
+                busy={busy}
+                onSet={(id, coming) =>
+                  act(() => api.setAttendance(coming, id))
+                }
               />
               <QueueList
                 queue={state.queue}
