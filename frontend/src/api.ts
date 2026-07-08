@@ -76,11 +76,11 @@ export const api = {
       body: JSON.stringify({ member_id }),
     }),
 
-  // Confirmar asistencia al viernes (propia o de un compañero). Solo informativo.
-  setAttendance: (coming: boolean, member_id?: string) =>
+  // Confirmar tu propia asistencia al viernes (Vinc / No vinc). Solo informativo.
+  setAttendance: (coming: boolean) =>
     req<AppState>("/api/attendance", {
       method: "POST",
-      body: JSON.stringify({ coming, member_id }),
+      body: JSON.stringify({ coming }),
     }),
 
   // --- notificaciones push ---

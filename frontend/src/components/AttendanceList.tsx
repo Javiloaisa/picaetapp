@@ -7,7 +7,7 @@ interface Props {
   meId: string | null;
   friday: string;
   busy: boolean;
-  onSet: (memberId: string, coming: boolean) => void;
+  onSetMine: (coming: boolean) => void; // cada u només respon per si mateix
 }
 
 export function AttendanceList({
@@ -16,7 +16,7 @@ export function AttendanceList({
   meId,
   friday,
   busy,
-  onSet,
+  onSetMine,
 }: Props) {
   if (members.length === 0) return null;
 
@@ -24,9 +24,12 @@ export function AttendanceList({
   const byId = new Map<string, boolean>();
   for (const a of attendance) byId.set(a.member_id, a.coming);
 
-  const rows = [...members].sort((a, b) =>
-    a.name.localeCompare(b.name, "es")
-  );
+  // Jo primer (per a respondre de seguida), la resta per ordre alfabètic.
+  const rows = [...members].sort((a, b) => {
+    if (a.id === meId) return -1;
+    if (b.id === meId) return 1;
+    return a.name.localeCompare(b.name, "es");
+  });
   const yes = attendance.filter((a) => a.coming).length;
   const no = attendance.filter((a) => !a.coming).length;
   const pending = members.length - yes - no;
@@ -53,38 +56,59 @@ export function AttendanceList({
           return (
             <li
               key={m.id}
-              className="flex items-center gap-3 rounded-2xl bg-navy-900/[0.04] px-4 py-2.5"
+              className={`flex items-center gap-3 rounded-2xl px-4 py-2.5 ${
+                mine
+                  ? "bg-mustard/10 ring-1 ring-mustard/25"
+                  : "bg-navy-900/[0.04]"
+              }`}
             >
               <span className="flex-1 min-w-0 truncate text-ink">
                 {m.name}
                 {mine && <span className="text-mustard text-xs ml-2">(tu)</span>}
               </span>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={() => onSet(m.id, true)}
-                  disabled={busy}
-                  aria-pressed={state === true}
-                  className={`tap rounded-full px-3 py-1 text-sm font-semibold disabled:opacity-50 ${
+
+              {mine ? (
+                // Només tu pots canviar la teua resposta.
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => onSetMine(true)}
+                    disabled={busy}
+                    aria-pressed={state === true}
+                    className={`tap rounded-full px-3 py-1 text-sm font-semibold disabled:opacity-50 ${
+                      state === true
+                        ? "bg-mustard text-navy-900"
+                        : "bg-navy-900/[0.06] text-ink/50 hover:text-ink"
+                    }`}
+                  >
+                    Vinc
+                  </button>
+                  <button
+                    onClick={() => onSetMine(false)}
+                    disabled={busy}
+                    aria-pressed={state === false}
+                    className={`tap rounded-full px-3 py-1 text-sm font-semibold disabled:opacity-50 ${
+                      state === false
+                        ? "bg-coral text-white"
+                        : "bg-navy-900/[0.06] text-ink/50 hover:text-ink"
+                    }`}
+                  >
+                    No
+                  </button>
+                </div>
+              ) : (
+                // La resta, només lectura.
+                <span
+                  className={`shrink-0 text-sm font-semibold ${
                     state === true
-                      ? "bg-mustard text-navy-900"
-                      : "bg-navy-900/[0.06] text-ink/50 hover:text-ink"
+                      ? "text-mustard"
+                      : state === false
+                      ? "text-coral"
+                      : "text-ink/30 font-normal"
                   }`}
                 >
-                  Vinc
-                </button>
-                <button
-                  onClick={() => onSet(m.id, false)}
-                  disabled={busy}
-                  aria-pressed={state === false}
-                  className={`tap rounded-full px-3 py-1 text-sm font-semibold disabled:opacity-50 ${
-                    state === false
-                      ? "bg-coral text-white"
-                      : "bg-navy-900/[0.06] text-ink/50 hover:text-ink"
-                  }`}
-                >
-                  No
-                </button>
-              </div>
+                  {state === true ? "✓ ve" : state === false ? "no ve" : "—"}
+                </span>
+              )}
             </li>
           );
         })}

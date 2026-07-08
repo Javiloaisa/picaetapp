@@ -81,9 +81,8 @@ class DeclineIn(BaseModel):
 
 
 class AttendanceIn(BaseModel):
+    # Cada u respon només per si mateix (l'actor el posa la sessió).
     coming: bool
-    # De quién es la respuesta. None = uno mismo.
-    member_id: Optional[str] = None
 
 
 class SubscribeIn(BaseModel):
@@ -505,27 +504,20 @@ def decline_turn(body: DeclineIn = DeclineIn(),
 
 @app.post("/api/attendance")
 def set_attendance(body: AttendanceIn, actor: str = Depends(auth.require_login)):
-    """Confirma si alguien viene a la picaeta de este viernes (Vinc / No vinc).
+    """Confirma si TÚ vienes a la picaeta de este viernes (Vinc / No vinc).
 
-    Por defecto respondes por ti; con `member_id` respondes por un compañero.
-    Es SOLO informativo (cuenta cabezas): no cambia quién compra.
+    Cada quien responde solo por sí mismo (el actor sale de la sesión). Es SOLO
+    informativo (cuenta cabezas): no cambia quién compra.
     """
-    target = body.member_id or actor
     friday = current_friday(_today())
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                "SELECT 1 FROM members WHERE id = %s AND active = true",
-                (target,),
-            )
-            if cur.fetchone() is None:
-                raise HTTPException(404, "Eixe membre no existix.")
             cur.execute(
                 "INSERT INTO attendance (member_id, friday, coming) "
                 "VALUES (%s, %s, %s) "
                 "ON CONFLICT (member_id, friday) DO UPDATE SET "
                 "  coming = EXCLUDED.coming, updated_at = now()",
-                (target, friday, body.coming),
+                (actor, friday, body.coming),
             )
         return _load_state(conn)
 

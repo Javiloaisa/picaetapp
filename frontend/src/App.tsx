@@ -356,9 +356,7 @@ export default function App() {
                 meId={meId}
                 friday={state.friday}
                 busy={busy}
-                onSet={(id, coming) =>
-                  act(() => api.setAttendance(coming, id))
-                }
+                onSetMine={(coming) => act(() => api.setAttendance(coming))}
               />
               <QueueList
                 queue={state.queue}
