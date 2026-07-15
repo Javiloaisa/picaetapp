@@ -157,13 +157,26 @@ def _sort_key(entry: dict[str, Any]):
 
 def order_queue(standings: list[dict[str, Any]],
                 declined: list[str]) -> list[dict[str, Any]]:
-    """Cola ordenada de quién compra antes, ignorando la ronda de declinados."""
+    """Cola ordenada de quién compra antes.
+
+    Declinar solo pospone dentro de tu grupo de contador: quien dijo "esta
+    semana no" pasa detrás de los demás con su mismo número de picaetas, pero
+    nunca detrás de quien ya lleva más compradas. El asignado actual (que
+    nunca es un declinado, salvo reseteo de ronda) va siempre el primero,
+    porque es quien compra esta semana.
+    """
     declined_set = {str(d) for d in declined}
-    ordered = sorted(standings, key=_sort_key)
-    # Los que han declinado esta ronda van al final, manteniendo su orden justo.
-    eligibles = [e for e in ordered if e["id"] not in declined_set]
-    postponed = [e for e in ordered if e["id"] in declined_set]
-    return eligibles + postponed
+
+    def key(e: dict[str, Any]):
+        count, last, created, name = _sort_key(e)
+        return (count, e["id"] in declined_set, last, created, name)
+
+    ordered = sorted(standings, key=key)
+    assigned_id, _ = pick_assigned(standings, declined)
+    if assigned_id:
+        # Orden estable: el asignado pasa a la cabeza sin tocar el resto.
+        ordered.sort(key=lambda e: e["id"] != assigned_id)
+    return ordered
 
 
 def pick_assigned(standings: list[dict[str, Any]],
