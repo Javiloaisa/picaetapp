@@ -364,7 +364,11 @@ export default function App() {
                 meId={meId}
               />
               <FairnessBars members={state.members} meId={meId} />
-              <History history={state.history} />
+              <History
+                history={state.history}
+                busy={busy}
+                onSetDone={(id, done) => act(() => api.setTurnDone(id, done))}
+              />
             </>
           )}
         </main>

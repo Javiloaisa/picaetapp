@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import type { MemberStanding } from "../types";
-import { formatDate } from "../lib";
+import { awayLabel } from "../lib";
 
 interface Props {
   members: MemberStanding[];
@@ -103,7 +103,7 @@ export function MembersManager({ members, meId, onChanged }: Props) {
                   )}
                   {away && (
                     <span className="block text-ink/40 text-xs mt-0.5">
-                      🏖️ fora fins al {formatDate(m.away_until)}
+                      {awayLabel(m.away_until)}
                     </span>
                   )}
                 </span>

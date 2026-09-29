@@ -1,5 +1,5 @@
 import type { MemberStanding } from "../types";
-import { formatDate } from "../lib";
+import { awayLabel } from "../lib";
 
 interface Props {
   members: MemberStanding[];
@@ -29,7 +29,7 @@ export function FairnessBars({ members, meId }: Props) {
                   {isMe && <span className="text-xs ml-2 opacity-70">(tu)</span>}
                   {away && (
                     <span className="text-xs ml-2 text-ink/40">
-                      🏖️ fins al {formatDate(m.away_until)}
+                      {awayLabel(m.away_until)}
                     </span>
                   )}
                 </span>

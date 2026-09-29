@@ -12,6 +12,7 @@ export interface HistoryEntry {
   date: string;
   member_id: string;
   name: string;
+  done: boolean; // false = "no la va fer" (no compta, queda pendent)
 }
 
 export interface Attendance {

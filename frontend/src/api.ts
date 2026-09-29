@@ -76,6 +76,13 @@ export const api = {
       body: JSON.stringify({ member_id }),
     }),
 
+  // Marcar un divendres passat com "no la va fer" (done=false) o desfer-ho.
+  setTurnDone: (turn_id: string, done: boolean) =>
+    req<AppState>(`/api/turns/${turn_id}/done`, {
+      method: "POST",
+      body: JSON.stringify({ done }),
+    }),
+
   // Confirmar tu propia asistencia al viernes (Vinc / No vinc). Solo informativo.
   setAttendance: (coming: boolean) =>
     req<AppState>("/api/attendance", {

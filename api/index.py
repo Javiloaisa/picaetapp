@@ -81,6 +81,12 @@ class DeclineIn(BaseModel):
     member_id: Optional[str] = None
 
 
+class TurnDoneIn(BaseModel):
+    # False = "no la va fer": eixe divendres no compta i la persona es queda
+    # pendent per a la pròxima. True = desfer-ho (sí que la va portar).
+    done: bool
+
+
 class AttendanceIn(BaseModel):
     # Cada u respon només per si mateix (l'actor el posa la sessió).
     coming: bool
@@ -128,9 +134,11 @@ def _catch_up(conn, today: date) -> None:
     'Si pasa el viernes, se da por hecho que la ha portado.' Nadie tiene que
     marcar nada: al cargar el estado (o desde la tarea semanal) se rellenan los
     viernes pasados sin picaeta con el asignado de ese momento y se avanza.
+    Un viernes marcado como "no la va fer" (status 'declinado') también cuenta
+    como registrado: no se vuelve a rellenar.
     """
     with conn.cursor() as cur:
-        cur.execute("SELECT date FROM turns WHERE status = 'completado'")
+        cur.execute("SELECT date FROM turns")
         dates = [r["date"] for r in cur.fetchall()]
     for friday in missing_fridays(dates, today):
         _, assignable, declined = _standings_and_declined(conn, today)
@@ -224,9 +232,8 @@ def _load_state(conn):
             (assigned_id, declined),
         )
         cur.execute(
-            "SELECT t.id, t.date, m.id AS member_id, m.name "
+            "SELECT t.id, t.date, t.status, m.id AS member_id, m.name "
             "FROM turns t JOIN members m ON m.id = t.member_id "
-            "WHERE t.status = 'completado' "
             "ORDER BY t.date DESC, t.created_at DESC LIMIT 15"
         )
         history = cur.fetchall()
@@ -273,6 +280,7 @@ def _load_state(conn):
                 "date": _iso(h["date"]),
                 "member_id": str(h["member_id"]),
                 "name": h["name"],
+                "done": h["status"] == "completado",
             }
             for h in history
         ],
@@ -508,6 +516,29 @@ def decline_turn(body: DeclineIn = DeclineIn(),
             )
         # Le toca a otro: avísale por push (si tiene notificaciones).
         _notify_assigned(conn, _today())
+        return _load_state(conn)
+
+
+@app.post("/api/turns/{turn_id}/done")
+def set_turn_done(turn_id: str, body: TurnDoneIn,
+                  _actor: str = Depends(auth.require_login)):
+    """Marca un divendres passat com "no la va fer" (o ho desfà).
+
+    Si no la va portar, eixe torn deixa de comptar (status 'declinado'): com
+    continua amb el mateix nombre de picaetes, el reparte li la torna a
+    assignar la pròxima setmana ("es queda pendent per a la pròxima"). El
+    divendres queda registrat, així que ningú més la "porta" retroactivament.
+    """
+    new_status = "completado" if body.done else "declinado"
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE turns SET status = %s WHERE id = %s AND date < %s "
+                "RETURNING id",
+                (new_status, turn_id, _today()),
+            )
+            if cur.fetchone() is None:
+                raise HTTPException(404, "Eixa picaeta no existix o encara no ha passat.")
         return _load_state(conn)
 
 
