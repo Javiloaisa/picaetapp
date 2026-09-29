@@ -367,7 +367,7 @@ export default function App() {
               <History
                 history={state.history}
                 busy={busy}
-                onSetDone={(id, done) => act(() => api.setTurnDone(id, done))}
+                onNotDone={(id) => act(() => api.setTurnDone(id, false))}
               />
             </>
           )}

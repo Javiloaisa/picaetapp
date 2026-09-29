@@ -29,7 +29,7 @@ export function FairnessBars({ members, meId }: Props) {
                   {isMe && <span className="text-xs ml-2 opacity-70">(tu)</span>}
                   {away && (
                     <span className="text-xs ml-2 text-ink/40">
-                      {awayLabel(m.away_until)}
+                      {awayLabel(m.away_until, m.last_turn)}
                     </span>
                   )}
                 </span>

@@ -232,8 +232,9 @@ def _load_state(conn):
             (assigned_id, declined),
         )
         cur.execute(
-            "SELECT t.id, t.date, t.status, m.id AS member_id, m.name "
+            "SELECT t.id, t.date, m.id AS member_id, m.name "
             "FROM turns t JOIN members m ON m.id = t.member_id "
+            "WHERE t.status = 'completado' "
             "ORDER BY t.date DESC, t.created_at DESC LIMIT 15"
         )
         history = cur.fetchall()
@@ -280,7 +281,6 @@ def _load_state(conn):
                 "date": _iso(h["date"]),
                 "member_id": str(h["member_id"]),
                 "name": h["name"],
-                "done": h["status"] == "completado",
             }
             for h in history
         ],

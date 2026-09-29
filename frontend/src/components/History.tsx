@@ -5,12 +5,12 @@ import { formatDate } from "../lib";
 interface Props {
   history: HistoryEntry[];
   busy: boolean;
-  // done=false: "no la va fer" (no compta i queda pendent per a la pròxima).
-  onSetDone: (turnId: string, done: boolean) => void;
+  // "No la va fer": eixe divendres no compta i queda pendent per a la pròxima.
+  onNotDone: (turnId: string) => void;
 }
 
-export function History({ history, busy, onSetDone }: Props) {
-  // Confirmació en dos passos, com en declinar el torn.
+export function History({ history, busy, onNotDone }: Props) {
+  // Tocar una fila obri la confirmació (sense botons a la vista).
   const [confirming, setConfirming] = useState<string | null>(null);
 
   if (history.length === 0) return null;
@@ -24,44 +24,19 @@ export function History({ history, busy, onSetDone }: Props) {
         {history.map((h) => (
           <li
             key={h.id}
-            className="text-sm rounded-xl px-4 py-2.5 bg-navy-900/[0.03]"
+            className="text-sm rounded-xl bg-navy-900/[0.03]"
           >
-            <div className="flex items-center justify-between gap-2">
-              <span className={h.done ? "text-ink/90" : "text-ink/40 line-through"}>
-                🫒 {h.name}
-              </span>
-              <span className="flex items-center gap-3 shrink-0">
-                <span className="text-ink/40">{formatDate(h.date)}</span>
-                {h.done ? (
-                  confirming !== h.id && (
-                    <button
-                      onClick={() => setConfirming(h.id)}
-                      disabled={busy}
-                      className="tap text-xs text-ink/40 hover:text-coral disabled:opacity-40"
-                    >
-                      No la va fer
-                    </button>
-                  )
-                ) : (
-                  <button
-                    onClick={() => onSetDone(h.id, true)}
-                    disabled={busy}
-                    className="tap text-xs text-mustard hover:text-mustard-soft disabled:opacity-40"
-                  >
-                    Sí que la va fer
-                  </button>
-                )}
-              </span>
-            </div>
-            {!h.done && (
-              <p className="text-ink/40 text-xs mt-0.5">
-                No la va fer: es queda pendent per a la pròxima
-              </p>
-            )}
+            <button
+              onClick={() => setConfirming(confirming === h.id ? null : h.id)}
+              className="w-full flex items-center justify-between px-4 py-2.5 text-left"
+            >
+              <span className="text-ink/90">🫒 {h.name}</span>
+              <span className="text-ink/40">{formatDate(h.date)}</span>
+            </button>
             {confirming === h.id && (
-              <div className="flex items-center justify-end gap-3 mt-2 text-xs">
+              <div className="flex items-center justify-end gap-3 px-4 pb-2.5 text-xs">
                 <span className="text-ink/60">
-                  {h.name} no la va portar? Li tornarà a tocar.
+                  No la va fer? Li tornarà a tocar.
                 </span>
                 <button
                   onClick={() => setConfirming(null)}
@@ -72,12 +47,12 @@ export function History({ history, busy, onSetDone }: Props) {
                 <button
                   onClick={() => {
                     setConfirming(null);
-                    onSetDone(h.id, false);
+                    onNotDone(h.id);
                   }}
                   disabled={busy}
                   className="tap font-semibold text-coral disabled:opacity-40"
                 >
-                  Sí, no la va fer
+                  No la va fer
                 </button>
               </div>
             )}

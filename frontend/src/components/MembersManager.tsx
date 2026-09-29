@@ -103,7 +103,7 @@ export function MembersManager({ members, meId, onChanged }: Props) {
                   )}
                   {away && (
                     <span className="block text-ink/40 text-xs mt-0.5">
-                      {awayLabel(m.away_until)}
+                      {awayLabel(m.away_until, m.last_turn)}
                     </span>
                   )}
                 </span>

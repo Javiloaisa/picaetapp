@@ -14,8 +14,12 @@ export function formatDate(iso: string | null): string {
 
 // Vacances "sense data de tornada" (standby): es guarda com a away_until
 // molt llunyà. Es mostra com a "en standby" en compte de la data.
-export function awayLabel(iso: string | null): string {
-  if (iso && iso >= "2999-01-01") return "⏸️ en standby";
+export function awayLabel(iso: string | null, lastTurn?: string | null): string {
+  if (iso && iso >= "2999-01-01") {
+    return lastTurn !== undefined
+      ? `⏸️ en standby · última: ${formatDate(lastTurn)}`
+      : "⏸️ en standby";
+  }
   return `🏖️ fins al ${formatDate(iso)}`;
 }
 
