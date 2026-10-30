@@ -65,7 +65,7 @@ export function AttendanceList({
           rel="noreferrer"
           className="tap block text-center font-display font-semibold rounded-2xl px-4 py-2.5 mb-3 text-navy-900 bg-mustard hover:bg-mustard-soft"
         >
-          💬 Avisa el grup
+          💬 Avisa al grup
         </a>
       )}
 
