@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { replay } from "../fx";
+import { OliveLoader } from "./Fun";
 import { api } from "../api";
 import type { Member } from "../types";
 
@@ -45,7 +47,7 @@ export function LoginScreen({ onAuthed }: Props) {
       )}
 
       {members === null && !error && (
-        <p className="text-ink/40">Carregant la colla…</p>
+        <OliveLoader text="Carregant la colla" />
       )}
 
       {members && members.length === 0 && (
@@ -92,17 +94,25 @@ function PinStep({
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [welcome, setWelcome] = useState(false);
+  const pinInput = useRef<HTMLInputElement>(null);
+  const hand = useRef<HTMLSpanElement>(null);
+
+  function fail(msg: string) {
+    setError(msg);
+    replay(pinInput.current, "fx-shake");
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
     if (!/^\d{4,6}$/.test(pin)) {
-      setError("El PIN ha de tindre entre 4 i 6 xifres.");
+      fail("El PIN ha de tindre entre 4 i 6 xifres.");
       return;
     }
     if (isNew && pin !== confirm) {
-      setError("Els dos PIN no coincidixen.");
+      fail("Els dos PIN no coincidixen.");
       return;
     }
 
@@ -110,9 +120,12 @@ function PinStep({
     try {
       if (isNew) await api.setPin(member.id, pin);
       else await api.login(member.id, pin);
-      onAuthed();
+      // PIN bo: la mà saluda un moment abans d'entrar.
+      setWelcome(true);
+      replay(hand.current, "fx-wave");
+      window.setTimeout(onAuthed, 700);
     } catch (err) {
-      setError((err as Error).message);
+      fail((err as Error).message);
       setBusy(false);
     }
   }
@@ -127,7 +140,10 @@ function PinStep({
       </button>
 
       <h1 className="font-display text-2xl font-bold text-ink">
-        Hola, {member.name} 👋
+        Hola, {member.name}{" "}
+        <span ref={hand} className="inline-block">
+          👋
+        </span>
       </h1>
       <p className="text-ink/60 mt-2 mb-8">
         {isNew
@@ -143,13 +159,20 @@ function PinStep({
 
       <form onSubmit={submit} className="grid gap-4">
         <input
+          ref={pinInput}
           autoFocus
           value={pin}
           onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
           inputMode="numeric"
           autoComplete="off"
           placeholder="PIN"
-          className="text-center tracking-[0.5em] font-display text-2xl rounded-2xl bg-navy-900/[0.06] px-4 py-4 text-ink placeholder:text-ink/30 placeholder:tracking-normal outline-none focus:ring-2 focus:ring-mustard/60"
+          className={`text-center tracking-[0.5em] font-display text-2xl rounded-2xl px-4 py-4 text-ink placeholder:text-ink/30 placeholder:tracking-normal outline-none focus:ring-2 transition-colors ${
+            welcome
+              ? "bg-mustard/30 ring-2 ring-mustard"
+              : error
+              ? "bg-coral/10 focus:ring-coral/60"
+              : "bg-navy-900/[0.06] focus:ring-mustard/60"
+          }`}
         />
         {isNew && (
           <input
@@ -168,7 +191,7 @@ function PinStep({
           disabled={busy}
           className="tap font-display text-lg font-bold text-navy-900 bg-mustard hover:bg-mustard-soft disabled:opacity-50 rounded-2xl px-5 py-4"
         >
-          {busy ? "…" : isNew ? "Crear PIN i entrar" : "Entrar"}
+          {welcome ? "Bon dia! 🫒" : busy ? "…" : isNew ? "Crear PIN i entrar" : "Entrar"}
         </button>
       </form>
 

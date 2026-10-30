@@ -1,5 +1,7 @@
+import { useRef } from "react";
 import type { MemberStanding } from "../types";
 import { formatDate } from "../lib";
+import { useFlip } from "./Fun";
 
 interface Props {
   queue: MemberStanding[];
@@ -10,6 +12,9 @@ interface Props {
 export function QueueList({ queue, declined, meId }: Props) {
   // El primer és l'assignat (ja es mostra a dalt): ensenyem del 2n en avant.
   const rest = queue.slice(1);
+  // Si algú passa el torn, les files lliscant al seu lloc nou.
+  const list = useRef<HTMLOListElement>(null);
+  useFlip(list);
   if (rest.length === 0) return null;
 
   return (
@@ -17,12 +22,13 @@ export function QueueList({ queue, declined, meId }: Props) {
       <h3 className="font-display font-semibold text-ink/80 mb-3">
         Següents picaetes
       </h3>
-      <ol className="space-y-2">
+      <ol ref={list} className="space-y-2">
         {rest.map((m, i) => {
           const hasDeclined = declined.includes(m.id);
           return (
             <li
               key={m.id}
+              data-key={m.id}
               className="flex items-center gap-3 rounded-2xl bg-navy-900/[0.04] px-4 py-3"
             >
               <span className="font-display font-bold text-ink/40 w-6 text-center">

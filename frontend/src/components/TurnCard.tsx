@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MemberStanding } from "../types";
 import { relativeDays } from "../lib";
+import { hotPotato, replay, rings } from "../fx";
+import { SlotName } from "./Fun";
 
 interface Props {
   assigned: MemberStanding | null;
+  pool: string[]; // noms per a la ruleta del torn
   isMe: boolean;
   busy: boolean;
   reminding: boolean;
@@ -51,6 +54,7 @@ function ConfirmPass({
 
 export function TurnCard({
   assigned,
+  pool,
   isMe,
   busy,
   reminding,
@@ -60,6 +64,17 @@ export function TurnCard({
   onNotHere,
 }: Props) {
   const [confirming, setConfirming] = useState<null | "self" | "other">(null);
+  const card = useRef<HTMLDivElement>(null);
+  const megaphone = useRef<HTMLSpanElement>(null);
+
+  // Quan el torn passa a una altra persona: patata calenta.
+  const prevId = useRef(assigned?.id);
+  useEffect(() => {
+    if (prevId.current && assigned && prevId.current !== assigned.id && card.current) {
+      hotPotato(card.current);
+    }
+    prevId.current = assigned?.id;
+  }, [assigned?.id]);
 
   if (!assigned) {
     return (
@@ -72,12 +87,29 @@ export function TurnCard({
   }
 
   return (
-    <div className="rounded-3xl bg-gradient-to-br from-mustard/20 to-coral/10 p-6 shadow-lg shadow-mustard/10 ring-1 ring-mustard/30">
+    <div
+      ref={card}
+      className="relative rounded-3xl bg-gradient-to-br from-mustard/20 to-coral/10 p-6 shadow-lg shadow-mustard/10 ring-1 ring-mustard/30"
+    >
+      {isMe && (
+        // Reflex de llum quan et toca a tu.
+        <span
+          aria-hidden
+          className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none"
+        >
+          <span className="absolute inset-0 fx-shine" />
+        </span>
+      )}
       <p className="text-mustard font-display font-semibold tracking-wide uppercase text-xs">
         Este divendres li toca a
       </p>
-      <h2 className="font-display text-4xl font-bold text-ink mt-1 leading-none">
-        {assigned.name}
+      <h2 className="relative font-display text-4xl font-bold text-ink mt-1 leading-none">
+        <SlotName name={assigned.name} pool={pool} />
+        {isMe && (
+          <span aria-hidden className="absolute -top-6 -left-3 text-2xl fx-crown">
+            👑
+          </span>
+        )}
       </h2>
 
       <div className="flex gap-4 mt-4 text-sm text-ink/60">
@@ -124,11 +156,16 @@ export function TurnCard({
       ) : (
         <div className="mt-6 space-y-3">
           <button
-            onClick={onRemind}
+            onClick={(e) => {
+              rings(e.currentTarget);
+              replay(megaphone.current, "fx-wiggle");
+              onRemind();
+            }}
             disabled={reminding}
             className="tap inline-flex items-center gap-2 font-display font-semibold text-navy-900 bg-coral hover:bg-coral-soft disabled:opacity-60 rounded-2xl px-5 py-3"
           >
-            {reminding ? "Avisant…" : `📣 Recordar-li-ho a ${assigned.name}`}
+            <span ref={megaphone} className="inline-block">📣</span>
+            {reminding ? "Avisant…" : `Recordar-li-ho a ${assigned.name}`}
           </button>
           {confirming === "other" ? (
             <ConfirmPass

@@ -12,6 +12,8 @@ interface Props {
 export function History({ history, busy, onNotDone }: Props) {
   // Tocar una fila obri la confirmació (sense botons a la vista).
   const [confirming, setConfirming] = useState<string | null>(null);
+  // Fila que s'està ratllant amb retolador abans de desaparéixer.
+  const [scribbling, setScribbling] = useState<string | null>(null);
 
   if (history.length === 0) return null;
 
@@ -24,8 +26,25 @@ export function History({ history, busy, onNotDone }: Props) {
         {history.map((h) => (
           <li
             key={h.id}
-            className="text-sm rounded-xl bg-navy-900/[0.03]"
+            className="relative text-sm rounded-xl bg-navy-900/[0.03]"
           >
+            {scribbling === h.id && (
+              <svg
+                aria-hidden
+                viewBox="0 0 200 20"
+                preserveAspectRatio="none"
+                className="absolute left-3 top-[1.1rem] w-3/5 h-4 -translate-y-1/2 overflow-visible pointer-events-none"
+              >
+                <path
+                  d="M2 12 C 40 4, 70 18, 110 9 S 170 6, 198 11"
+                  className="fx-scribble"
+                  fill="none"
+                  stroke="#db5640"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+              </svg>
+            )}
             <button
               onClick={() => setConfirming(confirming === h.id ? null : h.id)}
               className="w-full flex items-center justify-between px-4 py-2.5 text-left"
@@ -47,9 +66,14 @@ export function History({ history, busy, onNotDone }: Props) {
                 <button
                   onClick={() => {
                     setConfirming(null);
-                    onNotDone(h.id);
+                    setScribbling(h.id);
+                    // Deixa vore el ratllat i després la fila se'n va.
+                    window.setTimeout(() => {
+                      setScribbling(null);
+                      onNotDone(h.id);
+                    }, 750);
                   }}
-                  disabled={busy}
+                  disabled={busy || scribbling !== null}
                   className="tap font-semibold text-coral disabled:opacity-40"
                 >
                   No la va fer

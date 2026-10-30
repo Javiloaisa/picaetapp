@@ -15,6 +15,8 @@ import { FairnessBars } from "./components/FairnessBars";
 import { History } from "./components/History";
 import { MembersManager } from "./components/MembersManager";
 import { formatDate, waLink } from "./lib";
+import { chomp, ding, plane, replay } from "./fx";
+import { FridayBanner, OliveLoader } from "./components/Fun";
 
 const POLL_MS = 6000;
 
@@ -35,6 +37,9 @@ export default function App() {
   const [awayDate, setAwayDate] = useState("");
   const [phone, setPhone] = useState<string | null>(null); // null = sense editar
   const timer = useRef<number | null>(null);
+  const bell = useRef<HTMLSpanElement>(null);
+  const footerOlive = useRef<HTMLSpanElement>(null);
+  const [oliveTaps, setOliveTaps] = useState(0);
 
   const checkSession = useCallback(async () => {
     try {
@@ -151,6 +156,7 @@ export default function App() {
   }
 
   async function setAway(until: string | null) {
+    if (until) plane();
     await act(() => api.setAway(until));
     setMe((m) => (m ? { ...m, away_until: until } : m));
     setAwayDate("");
@@ -171,6 +177,8 @@ export default function App() {
     const res = await enablePush();
     if (res === "ok") {
       setPushState("on");
+      replay(bell.current, "fx-bell");
+      if (bell.current) ding(bell.current);
       flash({ text: "Notificacions activades! 🔔" });
     } else if (res === "denied") {
       flash({
@@ -185,8 +193,8 @@ export default function App() {
 
   if (checking) {
     return (
-      <div className="min-h-dvh flex items-center justify-center text-ink/40">
-        Carregant…
+      <div className="min-h-dvh flex items-center justify-center px-5">
+        <OliveLoader />
       </div>
     );
   }
@@ -316,6 +324,9 @@ export default function App() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-display font-semibold text-ink">
+                  <span ref={bell} className="inline-block mr-1">
+                    🔔
+                  </span>
                   Notificacions
                 </p>
                 <p className="text-ink/50 text-sm">
@@ -360,9 +371,10 @@ export default function App() {
       ) : (
         <main className="space-y-8">
           {!state ? (
-            <p className="text-ink/40">Carregant…</p>
+            <OliveLoader />
           ) : (
             <>
+              {new Date().getDay() === 5 && <FridayBanner />}
               {onVacation && (
                 <p className="text-ink/60 text-sm bg-navy-900/[0.04] rounded-2xl px-4 py-3">
                   🏖️ Estàs de vacances: no t'assignaran cap picaeta. Torna-hi des
@@ -371,6 +383,7 @@ export default function App() {
               )}
               <TurnCard
                 assigned={state.assigned}
+                pool={state.members.map((m) => m.name)}
                 isMe={isAssigned}
                 busy={busy}
                 reminding={reminding}
@@ -406,8 +419,26 @@ export default function App() {
         </main>
       )}
 
-      <footer className="text-center text-ink/25 text-xs mt-12">
-        Fet amb fam 🫒
+      <footer className="text-center text-ink/25 text-xs mt-12 select-none">
+        Fet amb fam{" "}
+        {/* Secret: 5 tocs a l'oliva i una boca se la menja. */}
+        <span
+          ref={footerOlive}
+          onClick={() => {
+            const taps = oliveTaps + 1;
+            replay(footerOlive.current, "fx-pop");
+            if (taps < 5) return setOliveTaps(taps);
+            setOliveTaps(0);
+            const el = footerOlive.current;
+            if (!el) return;
+            chomp(el);
+            window.setTimeout(() => (el.style.visibility = "hidden"), 600);
+            window.setTimeout(() => (el.style.visibility = ""), 2400);
+          }}
+          className="inline-block cursor-pointer"
+        >
+          🫒
+        </span>
       </footer>
     </div>
   );

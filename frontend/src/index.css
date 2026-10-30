@@ -60,3 +60,60 @@ body {
 .tap:active {
   transform: scale(0.96);
 }
+
+/* --------------------------------------------------------------------- */
+/* Animacions gracioses (veure fx.ts). Amb "reduce motion" no es mouen.  */
+/* --------------------------------------------------------------------- */
+@keyframes fx-pop { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 70% { transform: scale(.92); } 100% { transform: scale(1); } }
+.fx-pop { animation: fx-pop .45s ease; }
+
+@keyframes fx-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-7px) rotate(-2deg); } 40% { transform: translateX(6px) rotate(2deg); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+.fx-shake { animation: fx-shake .5s ease; }
+
+@keyframes fx-wiggle { 0%,100% { transform: rotate(0); } 15% { transform: rotate(-14deg); } 30% { transform: rotate(12deg); } 45% { transform: rotate(-10deg); } 60% { transform: rotate(8deg); } 75% { transform: rotate(-4deg); } }
+.fx-wiggle { display: inline-block; animation: fx-wiggle .7s ease; }
+
+@keyframes fx-bell { 0%,100% { transform: rotate(0); } 10% { transform: rotate(22deg); } 20% { transform: rotate(-20deg); } 30% { transform: rotate(16deg); } 40% { transform: rotate(-12deg); } 50% { transform: rotate(8deg); } 60% { transform: rotate(-4deg); } }
+.fx-bell { display: inline-block; transform-origin: 50% 8%; animation: fx-bell 1s ease; }
+
+@keyframes fx-wave { 0%,100% { transform: rotate(0); } 20%,60% { transform: rotate(18deg); } 40%,80% { transform: rotate(-10deg); } }
+.fx-wave { display: inline-block; transform-origin: 70% 80%; animation: fx-wave .9s ease; }
+
+@keyframes fx-land { 0% { transform: scale(1); } 30% { transform: scale(1.04) rotate(-1deg); } 60% { transform: scale(.99) rotate(.5deg); } 100% { transform: scale(1); } }
+.fx-land { animation: fx-land .5s ease; }
+
+/* Corona que cau damunt del nom quan el torn és teu. */
+@keyframes fx-crown { 0% { opacity: 0; transform: translateY(-50px) rotate(-30deg); } 60% { opacity: 1; transform: translateY(4px) rotate(8deg); } 80% { transform: translateY(-3px) rotate(-4deg); } 100% { opacity: 1; transform: translateY(0) rotate(-12deg); } }
+.fx-crown { animation: fx-crown .8s cubic-bezier(.3,1.3,.5,1) .3s both; }
+
+/* Reflex de llum que creua la targeta. */
+@keyframes fx-shine { from { transform: translateX(-120%); } to { transform: translateX(120%); } }
+.fx-shine { background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.65) 50%, transparent 65%); animation: fx-shine 1s ease 1s both; }
+
+/* Segell de "Ple total!". */
+@keyframes fx-stamp { 0% { opacity: 0; transform: rotate(-10deg) scale(3); } 60% { opacity: 1; transform: rotate(-10deg) scale(.92); } 100% { opacity: 1; transform: rotate(-10deg) scale(1); } }
+.fx-stamp { animation: fx-stamp .45s cubic-bezier(.3,1.4,.5,1) .2s both; }
+
+/* Número que puja com un marcador. */
+@keyframes fx-roll { 0% { transform: translateY(70%); opacity: 0; } 70% { transform: translateY(-8%); opacity: 1; } 100% { transform: none; } }
+.fx-roll { display: inline-block; animation: fx-roll .45s cubic-bezier(.3,1.4,.5,1); }
+
+/* Banderetes i lletres del divendres. */
+@keyframes fx-sway { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+@keyframes fx-hop { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-12px); } 60% { transform: translateY(2px); } }
+
+/* Oliva que rodola mentre carrega. */
+@keyframes fx-roll-olive { 0% { left: 0; transform: rotate(0); } 100% { left: calc(100% - 2rem); transform: rotate(720deg); } }
+@keyframes fx-dot { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+
+/* Retolador roig a l'historial. */
+@keyframes fx-scribble { from { stroke-dashoffset: 300; } to { stroke-dashoffset: 0; } }
+.fx-scribble { stroke-dasharray: 300; animation: fx-scribble .6s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-pop, .fx-shake, .fx-wiggle, .fx-bell, .fx-wave, .fx-land, .fx-crown,
+  .fx-shine, .fx-stamp, .fx-roll, .fx-scribble {
+    animation-duration: 1ms !important;
+    animation-delay: 0s !important;
+  }
+}

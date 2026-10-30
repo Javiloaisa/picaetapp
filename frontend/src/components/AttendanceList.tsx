@@ -1,5 +1,7 @@
 import type { Attendance, MemberStanding } from "../types";
 import { formatDate, groupNudgeText, nudgeText, waLink } from "../lib";
+import { oliveRain, replay, rings, sadOlive } from "../fx";
+import { RollingNumber } from "./Fun";
 
 interface Props {
   members: MemberStanding[];
@@ -47,10 +49,19 @@ export function AttendanceList({
         <span className="text-ink/40 text-xs">{formatDate(friday)}</span>
       </div>
 
-      <p className="text-ink/50 text-sm mb-3">
-        <span className="text-ink font-semibold">{yes}</span> venen ·{" "}
+      <p className="relative text-ink/50 text-sm mb-3">
+        <span className="text-ink font-semibold">
+          <RollingNumber value={yes} />
+        </span>{" "}
+        venen ·{" "}
         <span className="text-ink font-semibold">{no}</span> no
         {pending > 0 && <> · {pending} sense contestar</>}
+        {pending === 0 && (
+          // Tots han contestat: segell.
+          <span className="absolute right-0 -top-1 font-display font-bold text-coral text-sm tracking-wide border-2 border-coral rounded-lg px-2 py-0.5 bg-cream/80 fx-stamp">
+            PLE TOTAL!
+          </span>
+        )}
       </p>
 
       {pendingNames.length > 0 && (
@@ -60,12 +71,14 @@ export function AttendanceList({
           href={waLink(null, "")}
           onClick={(e) => {
             e.currentTarget.href = waLink(null, groupNudgeText(pendingNames));
+            rings(e.currentTarget);
+            replay(e.currentTarget.firstElementChild, "fx-wiggle");
           }}
           target="_blank"
           rel="noreferrer"
           className="tap block text-center font-display font-semibold rounded-2xl px-4 py-2.5 mb-3 text-navy-900 bg-mustard hover:bg-mustard-soft"
         >
-          💬 Avisa al grup
+          <span className="inline-block">📣</span> Avisa al grup
         </a>
       )}
 
@@ -91,7 +104,10 @@ export function AttendanceList({
                 // Només tu pots canviar la teua resposta.
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
-                    onClick={() => onSetMine(true)}
+                    onClick={(e) => {
+                      if (state !== true) oliveRain(e.currentTarget);
+                      onSetMine(true);
+                    }}
                     disabled={busy}
                     aria-pressed={state === true}
                     className={`tap rounded-full px-3 py-1 text-sm font-semibold disabled:opacity-50 ${
@@ -103,7 +119,10 @@ export function AttendanceList({
                     Vaig
                   </button>
                   <button
-                    onClick={() => onSetMine(false)}
+                    onClick={(e) => {
+                      if (state !== false) sadOlive(e.currentTarget);
+                      onSetMine(false);
+                    }}
                     disabled={busy}
                     aria-pressed={state === false}
                     className={`tap rounded-full px-3 py-1 text-sm font-semibold disabled:opacity-50 ${

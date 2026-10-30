@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api";
 import type { MemberStanding } from "../types";
 import { awayLabel } from "../lib";
+import { plane } from "../fx";
 
 interface Props {
   members: MemberStanding[];
@@ -61,6 +62,7 @@ export function MembersManager({ members, meId, onChanged }: Props) {
   }
 
   async function setAway(id: string, until: string | null) {
+    if (until) plane();
     await run(() => api.setAway(until, id));
     setAwayFor(null);
     setAwayDate("");
