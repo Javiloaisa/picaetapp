@@ -98,7 +98,11 @@ export function AttendanceList({
               ) : state === undefined ? (
                 // Encara no ha contestat: li pots obrir un WhatsApp graciós.
                 <a
-                  href={waLink(m.phone, nudgeText(m.name))}
+                  href={waLink(m.phone, "")}
+                  // La frase es tria en tocar (no en pintar), perquè canvie cada volta.
+                  onClick={(e) => {
+                    e.currentTarget.href = waLink(m.phone, nudgeText(m.name));
+                  }}
                   target="_blank"
                   rel="noreferrer"
                   className="tap shrink-0 rounded-full px-3 py-1 text-sm font-semibold bg-navy-900/[0.06] text-ink/60 hover:text-ink"

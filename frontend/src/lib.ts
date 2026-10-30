@@ -54,8 +54,14 @@ const NUDGES = [
   (n: string) => `${n}, encara no has dit si vens divendres… i la truita no espera 🍳`,
 ];
 
-// Missatge (aleatori) per a qui encara no ha dit si ve a la picaeta.
+let lastNudge = -1;
+
+// Missatge (aleatori, mai el mateix dos voltes seguides) per a qui encara no
+// ha dit si ve a la picaeta.
 export function nudgeText(name: string): string {
-  const pick = NUDGES[Math.floor(Math.random() * NUDGES.length)];
-  return `${pick(name)}\nApunta't ací 👉 ${window.location.origin}`;
+  let i;
+  do i = Math.floor(Math.random() * NUDGES.length);
+  while (i === lastNudge);
+  lastNudge = i;
+  return `${NUDGES[i](name)}\nApunta't ací 👉 ${window.location.origin}`;
 }
