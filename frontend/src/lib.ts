@@ -74,6 +74,28 @@ const NUDGES = [
   (n: string) => `${n}, apunta't abans que algú es menge la teua part i diga que no sabia res 🤷`,
 ];
 
+const GROUP_NUDGES = [
+  "Qui no s'apunta, no menja 🫒",
+  "Les olives no s'apunten soles 🫒",
+  "L'última croqueta és per a qui s'apunta 🥟",
+  "Sense apuntar-se no hi ha picaeta. Queda dit 😏",
+  "La picaeta no es reserva per telepatia 🔮",
+  "Última hora: les olives estan preocupades 📰🫒",
+];
+
+// "a, b i c"
+function joinNames(names: string[]): string {
+  return names.length < 2
+    ? names.join("")
+    : `${names.slice(0, -1).join(", ")} i ${names[names.length - 1]}`;
+}
+
+// Missatge per al grup amb qui encara no ha dit si ve a la picaeta.
+export function groupNudgeText(pending: string[]): string {
+  const intro = GROUP_NUDGES[Math.floor(Math.random() * GROUP_NUDGES.length)];
+  return `${intro}\nEncara falten: ${joinNames(pending)}\nApunteu-vos ací 👉 ${window.location.origin}`;
+}
+
 let lastNudge = -1;
 
 // Missatge (aleatori, mai el mateix dos voltes seguides) per a qui encara no

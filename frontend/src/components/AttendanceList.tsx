@@ -1,5 +1,5 @@
 import type { Attendance, MemberStanding } from "../types";
-import { formatDate, nudgeText, waLink } from "../lib";
+import { formatDate, groupNudgeText, nudgeText, waLink } from "../lib";
 
 interface Props {
   members: MemberStanding[];
@@ -33,6 +33,10 @@ export function AttendanceList({
   const yes = attendance.filter((a) => a.coming).length;
   const no = attendance.filter((a) => !a.coming).length;
   const pending = members.length - yes - no;
+  // Qui falta per contestar (sense comptar-te a tu), per al missatge del grup.
+  const pendingNames = rows
+    .filter((m) => m.id !== meId && !byId.has(m.id))
+    .map((m) => m.name);
 
   return (
     <section>
@@ -48,6 +52,22 @@ export function AttendanceList({
         <span className="text-ink font-semibold">{no}</span> no
         {pending > 0 && <> · {pending} sense contestar</>}
       </p>
+
+      {pendingNames.length > 0 && (
+        // WhatsApp no deixa obrir un grup amb text: s'obri amb el missatge
+        // escrit i tries el grup.
+        <a
+          href={waLink(null, "")}
+          onClick={(e) => {
+            e.currentTarget.href = waLink(null, groupNudgeText(pendingNames));
+          }}
+          target="_blank"
+          rel="noreferrer"
+          className="tap block text-center font-display font-semibold rounded-2xl px-4 py-2.5 mb-3 text-navy-900 bg-mustard hover:bg-mustard-soft"
+        >
+          💬 Avisa el grup
+        </a>
+      )}
 
       <ul className="space-y-2">
         {rows.map((m) => {
