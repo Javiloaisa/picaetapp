@@ -16,6 +16,9 @@ export function MembersManager({ members, meId, onChanged }: Props) {
   // Miembro cuyo editor de vacaciones está abierto, y la fecha elegida.
   const [awayFor, setAwayFor] = useState<string | null>(null);
   const [awayDate, setAwayDate] = useState("");
+  // Miembro cuyo editor de móvil está abierto, y el número escrito.
+  const [phoneFor, setPhoneFor] = useState<string | null>(null);
+  const [phone, setPhone] = useState("");
 
   const todayIso = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local
 
@@ -63,6 +66,11 @@ export function MembersManager({ members, meId, onChanged }: Props) {
     setAwayDate("");
   }
 
+  async function savePhone(id: string) {
+    await run(() => api.setPhone(phone, id));
+    setPhoneFor(null);
+  }
+
   return (
     <section>
       <h3 className="font-display font-semibold text-ink/80 mb-3">L'equip</h3>
@@ -90,6 +98,7 @@ export function MembersManager({ members, meId, onChanged }: Props) {
         {members.map((m) => {
           const away = !!m.away_until && m.away_until >= todayIso;
           const editing = awayFor === m.id;
+          const editingPhone = phoneFor === m.id;
           return (
             <li
               key={m.id}
@@ -129,6 +138,19 @@ export function MembersManager({ members, meId, onChanged }: Props) {
                     </button>
                   )}
                   <button
+                    onClick={() => {
+                      setPhoneFor(editingPhone ? null : m.id);
+                      setPhone(m.phone ?? "");
+                    }}
+                    disabled={busy}
+                    className={`tap hover:text-mustard disabled:opacity-40 ${
+                      m.phone ? "text-ink/40" : "text-ink/20"
+                    }`}
+                    aria-label={`Mòbil de ${m.name}`}
+                  >
+                    📱
+                  </button>
+                  <button
                     onClick={() => resetPin(m.id, m.name)}
                     disabled={busy}
                     className="tap text-ink/40 hover:text-mustard disabled:opacity-40"
@@ -160,6 +182,26 @@ export function MembersManager({ members, meId, onChanged }: Props) {
                     className="tap shrink-0 font-display font-semibold rounded-2xl px-4 py-2 text-navy-900 bg-mustard hover:bg-mustard-soft disabled:opacity-40"
                   >
                     De vacances 🏖️
+                  </button>
+                </div>
+              )}
+
+              {editingPhone && (
+                <div className="flex gap-2 mt-3">
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="600 123 456"
+                    className="flex-1 min-w-0 rounded-2xl bg-navy-900/[0.06] px-4 py-2 text-ink placeholder:text-ink/30 outline-none focus:ring-2 focus:ring-mustard/60"
+                  />
+                  <button
+                    onClick={() => savePhone(m.id)}
+                    disabled={busy}
+                    className="tap shrink-0 font-display font-semibold rounded-2xl px-4 py-2 text-navy-900 bg-mustard hover:bg-mustard-soft disabled:opacity-40"
+                  >
+                    Guardar
                   </button>
                 </div>
               )}

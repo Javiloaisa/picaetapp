@@ -1,5 +1,5 @@
 import type { Attendance, MemberStanding } from "../types";
-import { formatDate } from "../lib";
+import { formatDate, nudgeText, waLink } from "../lib";
 
 interface Props {
   members: MemberStanding[];
@@ -95,6 +95,17 @@ export function AttendanceList({
                     No vaig
                   </button>
                 </div>
+              ) : state === undefined ? (
+                // Encara no ha contestat: li pots obrir un WhatsApp graciós.
+                <a
+                  href={waLink(m.phone, nudgeText(m.name))}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="tap shrink-0 rounded-full px-3 py-1 text-sm font-semibold bg-navy-900/[0.06] text-ink/60 hover:text-ink"
+                  aria-label={`Envia-li un WhatsApp a ${m.name}`}
+                >
+                  💬 avisa
+                </a>
               ) : (
                 // La resta, només lectura.
                 <span
@@ -106,7 +117,7 @@ export function AttendanceList({
                       : "text-ink/30 font-normal"
                   }`}
                 >
-                  {state === true ? "✓ ve" : state === false ? "no ve" : "—"}
+                  {state === true ? "✓ ve" : "no ve"}
                 </span>
               )}
             </li>

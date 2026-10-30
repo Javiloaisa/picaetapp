@@ -4,6 +4,7 @@ En Hetzner corre como proceso permanente (uvicorn) detrás del reverse proxy
 compartido (Caddy). Las rutas llevan el prefijo `/api`.
 """
 
+import re
 import threading
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
@@ -75,6 +76,13 @@ class AwayIn(BaseModel):
     member_id: Optional[str] = None
 
 
+class PhoneIn(BaseModel):
+    # Mòbil per a obrir-li el WhatsApp des de l'app. Buit/null = esborrar-lo.
+    phone: Optional[str] = None
+    # A qui se li posa. None = un mateix.
+    member_id: Optional[str] = None
+
+
 class DeclineIn(BaseModel):
     # A quién se le pasa el turno. None = uno mismo ("esta setmana no puc").
     # Con member_id marcas que el asignado "no està" (p. ej. no entra en la app).
@@ -111,7 +119,7 @@ def _standings_and_declined(conn, today: date):
     """Lee miembros activos, turnos y ronda; calcula standings y asignables."""
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT id, name, active, created_at, away_until FROM members "
+            "SELECT id, name, active, created_at, away_until, phone FROM members "
             "WHERE active = true ORDER BY created_at"
         )
         members = cur.fetchall()
@@ -254,6 +262,7 @@ def _load_state(conn):
             "count": e["count"],
             "last_turn": _iso(e["last_turn"]),
             "away_until": _iso(e["away_until"]),
+            "phone": e["phone"],
         }
 
     # Data en què li tocaria a cadascú de la cua (saltant festius).
@@ -482,6 +491,40 @@ def set_away(body: AwayIn, actor: str = Depends(auth.require_login)):
         return _load_state(conn)
 
 
+def _normalize_phone(raw: Optional[str]) -> Optional[str]:
+    """Deixa el mòbil en format wa.me: només xifres i amb prefix de país.
+
+    Si posen un número espanyol de 9 xifres sense prefix, se li afig el 34.
+    """
+    digits = re.sub(r"\D", "", raw or "")
+    if not digits:
+        return None
+    if digits.startswith("00"):
+        digits = digits[2:]
+    if len(digits) == 9 and digits[0] in "6789":
+        digits = "34" + digits
+    if not 10 <= len(digits) <= 15:
+        raise HTTPException(400, "Eixe número de telèfon no és vàlid.")
+    return digits
+
+
+@app.post("/api/members/phone")
+def set_phone(body: PhoneIn, actor: str = Depends(auth.require_login)):
+    """Guarda el mòbil d'algú (per defecte, el teu) per a avisar per WhatsApp."""
+    target = body.member_id or actor
+    phone = _normalize_phone(body.phone)
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE members SET phone = %s "
+                "WHERE id = %s AND active = true RETURNING id",
+                (phone, target),
+            )
+            if cur.fetchone() is None:
+                raise HTTPException(404, "Eixe membre no existix.")
+        return _load_state(conn)
+
+
 # --------------------------------------------------------------------------- #
 # Acciones sobre el turno (el actor sale de la sesión, no del cliente)
 #
@@ -674,7 +717,7 @@ def _weekly_notify_job() -> None:
 
 @app.on_event("startup")
 def _ensure_schema() -> None:
-    """Crea la taula d'assistència si encara no existix (deploys ja engegats).
+    """Crea la taula d'assistència i la columna del mòbil si encara no existixen.
 
     schema.sql només corre amb la BD buida, així que en producció fem la DDL
     ací (idempotent) per a no haver d'entrar a psql després d'un git pull.
@@ -688,6 +731,9 @@ def _ensure_schema() -> None:
                 "  coming boolean NOT NULL,"
                 "  updated_at timestamptz DEFAULT now(),"
                 "  PRIMARY KEY (member_id, friday))"
+            )
+            cur.execute(
+                "ALTER TABLE members ADD COLUMN IF NOT EXISTS phone text"
             )
     except Exception:
         # Si la BD encara no està llesta, ja es crearà via schema.sql.

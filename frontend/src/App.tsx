@@ -14,7 +14,7 @@ import { QueueList } from "./components/QueueList";
 import { FairnessBars } from "./components/FairnessBars";
 import { History } from "./components/History";
 import { MembersManager } from "./components/MembersManager";
-import { formatDate } from "./lib";
+import { formatDate, waLink } from "./lib";
 
 const POLL_MS = 6000;
 
@@ -33,6 +33,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [pushState, setPushState] = useState<PushState>("unknown");
   const [awayDate, setAwayDate] = useState("");
+  const [phone, setPhone] = useState<string | null>(null); // null = sense editar
   const timer = useRef<number | null>(null);
 
   const checkSession = useCallback(async () => {
@@ -134,9 +135,10 @@ export default function App() {
       } else {
         flash({
           text: `${target.name} encara no té les notificacions activades.`,
-          wa: `https://wa.me/?text=${encodeURIComponent(
+          wa: waLink(
+            target.phone,
             `Ei ${target.name}! Que este divendres portes tu la picaeta 🫒`
-          )}`,
+          ),
         });
       }
     } catch (e) {
@@ -152,6 +154,11 @@ export default function App() {
     await act(() => api.setAway(until));
     setMe((m) => (m ? { ...m, away_until: until } : m));
     setAwayDate("");
+  }
+
+  async function savePhone() {
+    await act(() => api.setPhone(phone));
+    setPhone(null);
   }
 
   async function toggleNotifications() {
@@ -277,6 +284,31 @@ export default function App() {
                 </div>
               </>
             )}
+          </section>
+
+          {/* WhatsApp: perquè els altres puguen obrir-te el xat des de l'app. */}
+          <section className="rounded-2xl bg-navy-900/[0.04] p-4">
+            <p className="font-display font-semibold text-ink">El teu WhatsApp</p>
+            <p className="text-ink/50 text-sm mt-1">
+              Així et poden avisar per WhatsApp des de l'app si no t'apuntes.
+            </p>
+            <div className="flex gap-2 mt-3">
+              <input
+                type="tel"
+                inputMode="tel"
+                value={phone ?? meStanding?.phone ?? ""}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="600 123 456"
+                className="flex-1 min-w-0 rounded-2xl bg-navy-900/[0.06] px-4 py-2 text-ink placeholder:text-ink/30 outline-none focus:ring-2 focus:ring-mustard/60"
+              />
+              <button
+                onClick={savePhone}
+                disabled={busy || phone === null}
+                className="tap shrink-0 font-display font-semibold rounded-2xl px-4 py-2 text-navy-900 bg-mustard hover:bg-mustard-soft disabled:opacity-40"
+              >
+                Guardar
+              </button>
+            </div>
           </section>
 
           {/* Notificacions */}

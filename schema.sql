@@ -11,6 +11,9 @@ create table if not exists members (
   -- asignan turnos; al pasar esa fecha vuelve solo (no hay que acordarse).
   -- NULL = disponible.
   away_until      date,
+  -- Mòbil en format wa.me (només xifres, amb prefix: 34600123456), per a
+  -- obrir-li el WhatsApp des de l'app. NULL = no l'ha posat.
+  phone           text,
   -- Autenticación por PIN. pin_hash NULL = cuenta sin reclamar (aún sin PIN).
   pin_hash        text,
   failed_attempts int not null default 0,      -- intentos de PIN fallidos seguidos
@@ -118,6 +121,7 @@ join (values
 -- alter table members add column if not exists failed_attempts int not null default 0;
 -- alter table members add column if not exists locked_until timestamptz;
 -- alter table members add column if not exists away_until date;
+-- alter table members add column if not exists phone text;
 -- Si venías del boolean on_vacation:
 --   alter table members add column if not exists away_until date;
 --   update members set away_until = date '2999-01-01' where on_vacation = true;

@@ -39,3 +39,23 @@ export function relativeDays(iso: string | null): string {
   const months = Math.round(days / 30);
   return months === 1 ? "fa 1 mes" : `fa ${months} mesos`;
 }
+
+// Enllaç de WhatsApp amb el text ja escrit. Amb mòbil obri directament el xat
+// d'eixa persona; sense, WhatsApp et deixa triar a qui enviar-ho.
+export function waLink(phone: string | null, text: string): string {
+  return `https://wa.me/${phone ?? ""}?text=${encodeURIComponent(text)}`;
+}
+
+const NUDGES = [
+  (n: string) => `Ei ${n}! Qui no s'apunta, no menja 🫒`,
+  (n: string) => `${n}, les olives no s'apunten soles 🫒 Vens divendres o què?`,
+  (n: string) => `${n}! L'última croqueta és per a qui s'apunta 🥟`,
+  (n: string) => `Ei ${n}, sense apuntar-te no hi ha picaeta. Avisat quedes 😏`,
+  (n: string) => `${n}, encara no has dit si vens divendres… i la truita no espera 🍳`,
+];
+
+// Missatge (aleatori) per a qui encara no ha dit si ve a la picaeta.
+export function nudgeText(name: string): string {
+  const pick = NUDGES[Math.floor(Math.random() * NUDGES.length)];
+  return `${pick(name)}\nApunta't ací 👉 ${window.location.origin}`;
+}

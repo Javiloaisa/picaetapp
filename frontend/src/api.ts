@@ -67,6 +67,14 @@ export const api = {
       body: JSON.stringify({ until, member_id }),
     }),
 
+  // Mòbil per a WhatsApp (null o "" per a esborrar-lo).
+  // member_id opcional: posar-li'l a un company (per defecte, un mateix).
+  setPhone: (phone: string | null, member_id?: string) =>
+    req<AppState>("/api/members/phone", {
+      method: "POST",
+      body: JSON.stringify({ phone, member_id }),
+    }),
+
   // --- acción sobre el turno (el actor lo pone el servidor por la sesión) ---
   // "Ja l'he portada" ya no existe: al pasar el viernes se da por hecho.
   // Sin member_id: declinas tú. Con member_id: marcas que el asignado no está.

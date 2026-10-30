@@ -141,6 +141,7 @@ def compute_standings(members: list[dict[str, Any]],
             "last_turn": last_completed.get(mid),
             "created_at": m["created_at"],
             "away_until": m.get("away_until"),
+            "phone": m.get("phone"),
         })
     return standings
 
