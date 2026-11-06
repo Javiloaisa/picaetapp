@@ -8,6 +8,7 @@ interface Props {
   attendance: Attendance[];
   meId: string | null;
   friday: string;
+  cook: string | null; // a qui li toca fer la picaeta esta setmana
   busy: boolean;
   onSetMine: (coming: boolean) => void; // cada u només respon per si mateix
 }
@@ -17,6 +18,7 @@ export function AttendanceList({
   attendance,
   meId,
   friday,
+  cook,
   busy,
   onSetMine,
 }: Props) {
@@ -70,7 +72,7 @@ export function AttendanceList({
         <a
           href={waLink(null, "")}
           onClick={(e) => {
-            e.currentTarget.href = waLink(null, groupNudgeText(pendingNames));
+            e.currentTarget.href = waLink(null, groupNudgeText(pendingNames, cook));
             rings(e.currentTarget);
             replay(e.currentTarget.firstElementChild, "fx-wiggle");
           }}

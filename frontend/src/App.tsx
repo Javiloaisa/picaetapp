@@ -400,6 +400,7 @@ export default function App() {
                 attendance={state.attendance}
                 meId={meId}
                 friday={state.friday}
+                cook={state.assigned?.name ?? null}
                 busy={busy}
                 onSetMine={(coming) => act(() => api.setAttendance(coming))}
               />
